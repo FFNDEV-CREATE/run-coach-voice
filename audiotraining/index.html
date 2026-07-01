@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Run Coach Voice</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E1A14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand"><span class="brand-mark"></span>Run Coach Voice</span>
+  <nav class="topnav">
+    <button data-view="lista" class="navbtn active">Treinos</button>
+    <button data-view="novo" class="navbtn">Novo treino</button>
+  </nav>
+</header>
+
+<main id="app">
+
+  <!-- VIEW: LISTA DE TREINOS -->
+  <section id="view-lista" class="view active">
+    <div id="lista-treinos" class="treino-grid">
+      <p class="empty-state">Carregando treinos…</p>
+    </div>
+  </section>
+
+  <!-- VIEW: NOVO TREINO (texto livre -> IA) -->
+  <section id="view-novo" class="view">
+    <h1 class="page-title">Descreva seu treino</h1>
+    <p class="page-sub">Cole ou digite o treino como seu personal te passou. A IA estrutura em blocos pra você conferir antes de salvar.</p>
+
+    <textarea id="texto-treino" placeholder="Ex: Aquecimento 1km livre. Depois 4x (300m no pace 6:05 + 200m no pace 5:50). Desaquecimento 500m livre."></textarea>
+
+    <button id="btn-interpretar" class="btn-primary">Interpretar treino</button>
+    <p id="erro-interpretar" class="error-text" hidden></p>
+
+    <div id="revisao-blocos" class="revisao" hidden>
+      <h2 class="section-title">Confira os blocos</h2>
+      <div id="lista-blocos-revisao"></div>
+      <div class="revisao-actions">
+        <button id="btn-salvar-treino" class="btn-primary">Salvar treino</button>
+        <button id="btn-descartar" class="btn-secondary">Descartar e editar texto</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW: EXECUÇÃO -->
+  <section id="view-execucao" class="view">
+    <div class="exec-header">
+      <span id="exec-bloco-nome">—</span>
+      <button id="btn-parar" class="btn-stop">Parar</button>
+    </div>
+
+    <div class="exec-pace-ring" id="exec-pace-ring">
+      <div class="exec-pace-value">
+        <span id="exec-pace-atual">--:--</span>
+        <small>min/km atual</small>
+      </div>
+    </div>
+
+    <div class="exec-grid">
+      <div class="exec-stat">
+        <span id="exec-distancia-bloco">0 m</span>
+        <small>distância no bloco</small>
+      </div>
+      <div class="exec-stat">
+        <span id="exec-meta-bloco">—</span>
+        <small>meta do bloco</small>
+      </div>
+      <div class="exec-stat">
+        <span id="exec-tempo-total">00:00</span>
+        <small>tempo total</small>
+      </div>
+      <div class="exec-stat">
+        <span id="exec-distancia-total">0 m</span>
+        <small>distância total</small>
+      </div>
+    </div>
+
+    <p id="exec-status-msg" class="exec-status">Toque em iniciar para começar</p>
+
+    <div class="exec-blocos-timeline" id="exec-timeline"></div>
+
+    <button id="btn-iniciar-exec" class="btn-primary btn-grande">Iniciar treino</button>
+  </section>
+
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/voice-engine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
