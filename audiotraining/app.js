@@ -71,7 +71,13 @@ function renderizarRevisao(resultado){
   resultado.blocos.forEach(b => {
     const card = document.createElement("div");
     card.className = "bloco-card" + (b.ritmo_livre ? " livre" : "");
-    const metaTxt = b.meta_tipo === "distancia" ? `${b.meta_valor} m` : `${Math.round(b.meta_valor/60)} min`;
+    const metaTxt = b.meta_tipo === "distancia"
+  ? `${b.meta_valor} m`
+  : b.meta_valor < 60
+    ? `${b.meta_valor} seg`
+    : b.meta_valor % 60 === 0
+      ? `${b.meta_valor/60} min`
+      : `${Math.floor(b.meta_valor/60)}min ${b.meta_valor%60}seg`;
     const paceTxt = b.ritmo_livre
       ? "ritmo livre"
       : `${formatPaceMinKm(b.pace_alvo_min_seg_km)}–${formatPaceMinKm(b.pace_alvo_max_seg_km)} /km`;
