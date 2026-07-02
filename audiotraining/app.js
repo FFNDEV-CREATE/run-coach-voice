@@ -196,6 +196,41 @@ document.getElementById("btn-iniciar-exec").addEventListener("click", async () =
   executor.iniciar();
   renderTimeline(blocos, 0);
   document.getElementById("btn-iniciar-exec").hidden = true;
+  document.getElementById("btn-simular-exec").hidden = true;
+});
+
+// ===== Modo simulação (teste sem GPS) =====
+document.getElementById("btn-simular-exec").addEventListener("click", async () => {
+  if(!treinoAtual) return;
+  try{
+    const exec = await SupabaseClient.criarExecucao(treinoAtual.id);
+    execucaoId = exec[0]?.id || null;
+  }catch(e){
+    console.warn("Seguindo offline.", e);
+  }
+
+  const blocos = treinoAtual.blocos.blocos;
+  executor = new RunExecutor(blocos, (state) => atualizarTelaExecucao(state));
+  executor.onBlocoCompleto = (idx, bloco, paceRealMedio, distReal, tempoReal) => {
+    if(execucaoId){
+      SupabaseClient.salvarBlocoExecutado(execucaoId, idx, bloco, paceRealMedio, distReal, tempoReal)
+        .catch(()=>{});
+    }
+    renderTimeline(blocos, executor.blocoIndex);
+  };
+  executor.onFinalizado = async () => {
+    document.getElementById("exec-status-msg").textContent = "Simulação concluída! 🎉";
+    if(gpsTracker) gpsTracker.parar();
+  };
+
+  // Usa simulador em vez de GPS real
+  gpsTracker = new GPSSimulator((update) => executor.atualizar(update));
+  gpsTracker.iniciar();
+
+  executor.iniciar();
+  renderTimeline(blocos, 0);
+  document.getElementById("btn-iniciar-exec").hidden = true;
+  document.getElementById("btn-simular-exec").hidden = true;
 });
 
 document.getElementById("btn-parar").addEventListener("click", async () => {
