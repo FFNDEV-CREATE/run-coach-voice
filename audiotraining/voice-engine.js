@@ -255,3 +255,34 @@ class RunExecutor {
     }
   }
 }
+
+// ===== MODO SIMULAÇÃO (para testes sem GPS) =====
+class GPSSimulator {
+  constructor(onUpdate){
+    this.onUpdate = onUpdate;
+    this.distanciaTotalM = 0;
+    this.intervalo = null;
+    // Simula pace variável entre 5:30 e 6:30 /km
+    this.paceAtualSegKm = 360;
+  }
+  iniciar(){
+    // A cada 2 segundos, avança como se estivesse correndo
+    this.intervalo = setInterval(() => {
+      // Varia o pace levemente para simular corrida real (+/- ruído)
+      const variacao = (Math.random() - 0.5) * 20; // ±10 seg/km
+      this.paceAtualSegKm = Math.max(300, Math.min(450, this.paceAtualSegKm + variacao));
+
+      // Calcula quantos metros percorreu em 2 segundos nesse pace
+      const metrosPor2Seg = (2 / this.paceAtualSegKm) * 1000;
+      this.distanciaTotalM += metrosPor2Seg;
+
+      this.onUpdate({
+        distanciaTotalM: this.distanciaTotalM,
+        paceSegPorKm: this.paceAtualSegKm
+      });
+    }, 2000);
+  }
+  parar(){
+    if(this.intervalo) clearInterval(this.intervalo);
+  }
+}
