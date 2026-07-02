@@ -37,6 +37,13 @@ async function carregarTreinos(){
   }
 }
 
+// ===== Utilitário: formatar tempo para exibição =====
+function formatarTempoBloco(segundos){
+  if(segundos < 60) return `${segundos} seg`;
+  if(segundos % 60 === 0) return `${segundos/60} min`;
+  return `${Math.floor(segundos/60)}min ${segundos%60}seg`;
+}
+
 // ===== VIEW: Novo treino =====
 let blocosInterpretados = null;
 let tituloInterpretado = "";
@@ -71,16 +78,17 @@ function renderizarRevisao(resultado){
   resultado.blocos.forEach(b => {
     const card = document.createElement("div");
     card.className = "bloco-card" + (b.ritmo_livre ? " livre" : "");
+
+    // Exibe distância ou tempo de forma legível
     const metaTxt = b.meta_tipo === "distancia"
-  ? `${b.meta_valor} m`
-  : b.meta_valor < 60
-    ? `${b.meta_valor} seg`
-    : b.meta_valor % 60 === 0
-      ? `${b.meta_valor/60} min`
-      : `${Math.floor(b.meta_valor/60)}min ${b.meta_valor%60}seg`;
+      ? `${b.meta_valor} m`
+      : formatarTempoBloco(b.meta_valor);
+
+    // Pace: exibe do mais rápido ao mais lento (ex: 5:45–6:15)
     const paceTxt = b.ritmo_livre
       ? "ritmo livre"
-      : `${formatPaceMinKm(b.pace_alvo_min_seg_km)}–${formatPaceMinKm(b.pace_alvo_max_seg_km)} /km`;
+      : `${formatPaceMinKm(b.pace_alvo_max_seg_km)}–${formatPaceMinKm(b.pace_alvo_min_seg_km)} /km`;
+
     card.innerHTML = `
       <div>
         <div class="bloco-nome">${b.nome}</div>
@@ -209,17 +217,20 @@ function atualizarTelaExecucao(state){
   document.getElementById("exec-bloco-nome").textContent = state.bloco.nome;
   document.getElementById("exec-pace-atual").textContent = formatPaceMinKm(state.paceSegPorKm);
   document.getElementById("exec-distancia-bloco").textContent = `${Math.round(state.distanciaNoBloco)} m`;
+
+  // Exibe meta do bloco de forma legível na tela de execução
   document.getElementById("exec-meta-bloco").textContent = state.bloco.meta_tipo === "distancia"
     ? `${state.bloco.meta_valor} m`
-    : `${Math.round(state.bloco.meta_valor/60)} min`;
+    : formatarTempoBloco(state.bloco.meta_valor);
+
   document.getElementById("exec-tempo-total").textContent = formatTempo(state.tempoTotalS);
   document.getElementById("exec-distancia-total").textContent = `${(state.distanciaTotalM/1000).toFixed(2)} km`;
 
   const ring = document.getElementById("exec-pace-ring");
   ring.classList.remove("lento","rapido","ok");
   if(!state.bloco.ritmo_livre && state.paceSegPorKm){
-    const min = state.bloco.pace_alvo_min_seg_km;
-    const max = state.bloco.pace_alvo_max_seg_km;
+    const min = state.bloco.pace_alvo_min_seg_km; // mais lento
+    const max = state.bloco.pace_alvo_max_seg_km; // mais rápido
     if(state.paceSegPorKm > min + 5) ring.classList.add("lento");
     else if(state.paceSegPorKm < max - 5) ring.classList.add("rapido");
     else ring.classList.add("ok");
