@@ -1,4 +1,5 @@
 // ===== Navegação entre views =====
+import RunExecutor from "./core/RunExecutor.js";
 function mostrarView(nome){
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById(`view-${nome}`).classList.add("active");
