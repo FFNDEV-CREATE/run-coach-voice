@@ -1,113 +1,143 @@
-// ATENÇÃO: preencha com os dados do SEU projeto Supabase (Settings > API)
 const SUPABASE_URL = "https://aemwndlufteldrspinur.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlbXduZGx1ZnRlbGRyc3BpbnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MDQzOTksImV4cCI6MjA5ODQ4MDM5OX0.sUXbfekLgBzkLcjLZXcis4FXPyYJg1827Fvu7gLKoPY";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIs..."; // mantido
 
-// Carregado via CDN no index.html (adicione antes deste script se preferir),
-// aqui usamos fetch direto para evitar dependência de bundler.
+const headers = {
+  "Content-Type": "application/json",
+  "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+  "apikey": SUPABASE_ANON_KEY
+};
 
+// ================================
+// CLIENT CENTRALIZADO
+// ================================
 const SupabaseClient = {
-  async parseTreino(textoTreino) {
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/parse-treino`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ texto_treino: textoTreino })
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || "Falha ao interpretar o treino");
+
+  async _request(url, options = {}) {
+    try {
+      const resp = await fetch(url, options);
+
+      const data = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        throw new Error(data?.error || "Erro Supabase");
+      }
+
+      return data;
+    } catch (e) {
+      console.error("Supabase error:", e);
+      throw e;
     }
-    return resp.json();
   },
 
-  async salvarTreino(titulo, textoOriginal, blocos) {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/treinos`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY,
-        "Prefer": "return=representation"
-      },
-      body: JSON.stringify({
-        titulo,
-        texto_original: textoOriginal,
-        blocos
-      })
-    });
-    if (!resp.ok) throw new Error("Falha ao salvar treino");
-    return resp.json();
-  },
-
-  async listarTreinos() {
-    const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/treinos?select=*&order=criado_em.desc`,
+  // ================================
+  // TREINO PARSE
+  // ================================
+  parseTreino(textoTreino) {
+    return this._request(
+      `${SUPABASE_URL}/functions/v1/parse-treino`,
       {
-        headers: {
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "apikey": SUPABASE_ANON_KEY
-        }
+        method: "POST",
+        headers,
+        body: JSON.stringify({ texto_treino: textoTreino })
       }
     );
-    if (!resp.ok) throw new Error("Falha ao listar treinos");
-    return resp.json();
   },
 
-  async criarExecucao(treinoId) {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/execucoes`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY,
-        "Prefer": "return=representation"
-      },
-      body: JSON.stringify({ treino_id: treinoId })
-    });
-    if (!resp.ok) throw new Error("Falha ao criar execução");
-    return resp.json();
+  // ================================
+  // TREINOS
+  // ================================
+  listarTreinos() {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/treinos?select=*&order=criado_em.desc`,
+      { headers }
+    );
   },
 
-  async finalizarExecucao(execucaoId, distanciaTotalM, tempoTotalS) {
-    await fetch(`${SUPABASE_URL}/rest/v1/execucoes?id=eq.${execucaoId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({
-        finalizado_em: new Date().toISOString(),
-        distancia_total_m: distanciaTotalM,
-        tempo_total_s: tempoTotalS,
-        status: "concluido"
-      })
-    });
+  salvarTreino(titulo, textoOriginal, blocos) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/treinos`,
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify({
+          titulo,
+          texto_original: textoOriginal,
+          blocos: blocos || { blocos: [] }
+        })
+      }
+    );
   },
 
-  async salvarBlocoExecutado(execucaoId, blocoIndex, bloco, paceRealMedio, distanciaRealM, tempoRealS) {
-    await fetch(`${SUPABASE_URL}/rest/v1/execucao_blocos`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "apikey": SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({
-        execucao_id: execucaoId,
-        bloco_index: blocoIndex,
-        bloco_nome: bloco.nome,
-        meta_tipo: bloco.meta_tipo,
-        meta_valor: bloco.meta_valor,
-        pace_alvo_min: bloco.pace_alvo_min_seg_km,
-        pace_alvo_max: bloco.pace_alvo_max_seg_km,
-        pace_real_medio: paceRealMedio,
-        distancia_real_m: distanciaRealM,
-        tempo_real_s: tempoRealS
-      })
-    });
+  // ================================
+  // EXECUÇÃO
+  // ================================
+  criarExecucao(treinoId) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/execucoes`,
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify({
+          treino_id: treinoId,
+          status: "ativo"
+        })
+      }
+    );
+  },
+
+  finalizarExecucao(execucaoId, distanciaTotalM, tempoTotalS) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/execucoes?id=eq.${execucaoId}`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          finalizado_em: new Date().toISOString(),
+          distancia_total_m: distanciaTotalM || 0,
+          tempo_total_s: tempoTotalS || 0,
+          status: "concluido"
+        })
+      }
+    );
+  },
+
+  // ================================
+  // BLOCOS EXECUTADOS
+  // ================================
+  salvarBlocoExecutado(
+    execucaoId,
+    blocoIndex,
+    bloco,
+    paceRealMedio,
+    distanciaRealM,
+    tempoRealS
+  ) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/execucao_blocos`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          execucao_id: execucaoId,
+          bloco_index: blocoIndex,
+          bloco_nome: bloco?.nome || "",
+          meta_tipo: bloco?.meta_tipo || "",
+          meta_valor: bloco?.meta_valor || 0,
+
+          pace_alvo_min: bloco?.pace_alvo_min_seg_km ?? null,
+          pace_alvo_max: bloco?.pace_alvo_max_seg_km ?? null,
+
+          pace_real_medio: paceRealMedio ?? null,
+          distancia_real_m: distanciaRealM ?? 0,
+          tempo_real_s: tempoRealS ?? 0
+        })
+      }
+    );
   }
 };
