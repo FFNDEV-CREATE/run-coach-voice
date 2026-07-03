@@ -136,5 +136,49 @@ export default class RunExecutor {
     };
 
     this.onUpdate(state);
+
+   
   }
 }
+   const state = {
+      bloco,
+      blocoIndex: this.blocoIndex,
+
+      paceSegPorKm,
+
+      distanciaNoBloco: this.distanciaNoBloco,
+      distanciaTotalM: this.distanciaTotalM,
+
+      tempoTotalS: this.tempoInicioTotal
+        ? (Date.now() - this.tempoInicioTotal) / 1000
+        : 0,
+
+      forcarNovoBloco
+    };
+
+    this.onUpdate(state);
+  }
+}
+
+   const state = {
+      bloco,
+      blocoIndex: this.blocoIndex,
+
+      paceSegPorKm,
+
+      distanciaNoBloco: this.distanciaNoBloco,
+      distanciaTotalM: this.distanciaTotalM,
+
+      tempoTotalS: this.tempoInicioTotal
+        ? (Date.now() - this.tempoInicioTotal) / 1000
+        : 0,
+
+      forcarNovoBloco
+    };
+
+    this.onUpdate(state);
+
+  }
+}
+
+
