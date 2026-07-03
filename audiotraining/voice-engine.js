@@ -1,5 +1,5 @@
 // ================================
-// 🧠 RUN COACH VOICE ENGINE v2
+// 🧠 RUN COACH VOICE ENGINE v2 (FIXED)
 // ================================
 
 const VoiceEngine = {
@@ -8,17 +8,14 @@ const VoiceEngine = {
   ultimoTipo: null,
   ultimoTempo: 0,
 
-  prioridadeAtiva: false,
-
   falar(texto, { prioridade = false, tipo = "normal" } = {}) {
     if (!("speechSynthesis" in window)) return;
 
     const agora = Date.now();
 
-    // 🔥 anti repetição agressiva
     if (
       tipo === this.ultimoTipo &&
-      agora - this.ultimoTempo < 25000 &&
+      agora - this.ultimoTempo < 20000 &&
       !prioridade
     ) {
       return;
@@ -28,7 +25,6 @@ const VoiceEngine = {
       window.speechSynthesis.cancel();
       this.fila = [];
       this.falando = false;
-      this.prioridadeAtiva = true;
     }
 
     this.fila.push({ texto, tipo });
@@ -48,8 +44,6 @@ const VoiceEngine = {
     const utt = new SpeechSynthesisUtterance(item.texto);
     utt.lang = "pt-BR";
     utt.rate = 1.02;
-    utt.pitch = 1.0;
-    utt.volume = 1.0;
 
     utt.onend = () => {
       this.falando = false;
@@ -66,28 +60,25 @@ const VoiceEngine = {
 };
 
 // ================================
-// 🧠 DECISOR DA TREINADORA
+// 🧠 COACH BRAIN (FIXED PARA RUNEXECUTOR)
 // ================================
 
 class CoachBrain {
   constructor() {
     this.ultimoAvisoPace = 0;
     this.ultimoEstadoPace = "ok";
-    this.tempoInicioBloco = Date.now();
-    this.inicioAquecimento = false;
   }
 
-  analisar({ bloco, pace, tempoNoBlocoS }) {
+  analisar(state) {
     const agora = Date.now();
+    const { bloco, paceSegPorKm, distanciaNoBloco, tempoTotalS } = state;
 
     if (!bloco) return null;
 
     // -------------------------
-    // 🟢 MUDANÇA DE BLOCO
+    // 🎯 INÍCIO DE BLOCO
     // -------------------------
-    if (tempoNoBlocoS < 3) {
-      this.inicioAquecimento = true;
-
+    if (tempoTotalS < 3) {
       return {
         falar: true,
         prioridade: true,
@@ -97,74 +88,41 @@ class CoachBrain {
     }
 
     // -------------------------
-    // ⏱ ALERTA DE TEMPO FINAL
+    // 🎯 PACE CONTROL (compatível RunExecutor)
     // -------------------------
-    const tempoRestante =
-      (bloco.duracaoSeg || 0) - tempoNoBlocoS;
+    if (bloco.pace_alvo_min_seg_km && bloco.pace_alvo_max_seg_km && paceSegPorKm) {
 
-    if (tempoRestante <= 30 && tempoRestante > 25) {
-      return {
-        falar: true,
-        tipo: "tempo",
-        texto: "Faltam 30 segundos."
-      };
-    }
+      const lento = paceSegPorKm > bloco.pace_alvo_min_seg_km;
+      const rapido = paceSegPorKm < bloco.pace_alvo_max_seg_km;
 
-    if (tempoRestante <= 10 && tempoRestante > 5) {
-      return {
-        falar: true,
-        prioridade: true,
-        tipo: "tempo",
-        texto: "Últimos 10 segundos."
-      };
-    }
+      const estado = lento ? "lento" : rapido ? "rapido" : "ok";
 
-    // -------------------------
-    // 🎯 CONTROLE DE PACE (REGRA PRINCIPAL)
-    // -------------------------
-    if (bloco.paceMin && bloco.paceMax && pace) {
-      const erro =
-        pace < bloco.paceMin
-          ? "rapido"
-          : pace > bloco.paceMax
-          ? "lento"
-          : "ok";
-
-      // dentro da zona
-      if (erro === "ok") {
+      if (estado === "ok") {
         if (this.ultimoEstadoPace !== "ok") {
           this.ultimoEstadoPace = "ok";
 
           return {
             falar: true,
             tipo: "pace",
-            texto: "Perfeito, voltou ao ritmo."
+            texto: "Perfeito, ritmo estabilizado."
           };
         }
 
         return null;
       }
 
-      // fora da zona (só fala se persistir)
       if (agora - this.ultimoAvisoPace > 12000) {
         this.ultimoAvisoPace = agora;
-        this.ultimoEstadoPace = erro;
+        this.ultimoEstadoPace = estado;
 
-        if (erro === "lento") {
-          return {
-            falar: true,
-            tipo: "pace",
-            texto: "Você está acima do ritmo. Acelera um pouco."
-          };
-        }
-
-        if (erro === "rapido") {
-          return {
-            falar: true,
-            tipo: "pace",
-            texto: "Você está rápido demais. Segura um pouco."
-          };
-        }
+        return {
+          falar: true,
+          tipo: "pace",
+          texto:
+            estado === "lento"
+              ? "Você está abaixo do ritmo. Acelera um pouco."
+              : "Você está acima do ritmo. Controla um pouco."
+        };
       }
     }
 
@@ -172,36 +130,22 @@ class CoachBrain {
   }
 
   _falaInicioBloco(bloco) {
-    if (bloco.tipo === "aquecimento") {
-      return "Aquecimento iniciado. Vamos com calma.";
-    }
+    const tipo = bloco.tipo;
 
-    if (bloco.tipo === "corrida_continua") {
-      return "Começou a parte principal. Vamos manter o ritmo.";
-    }
-
-    if (bloco.tipo === "repeticao_tempo" || bloco.tipo === "repeticao_distancia") {
-      return "Começam os intervalos. Foco agora.";
-    }
-
-    if (bloco.tipo === "rampa") {
-      return "Agora é rampa. Dá o seu máximo.";
-    }
-
-    if (bloco.tipo === "desaquecimento") {
-      return "Último bloco. Desacelera agora.";
-    }
+    if (tipo === "aquecimento") return "Aquecimento iniciado.";
+    if (tipo === "corrida_continua") return "Parte principal do treino começou.";
+    if (tipo === "repeticao_tempo" || tipo === "repeticao_distancia") return "Intervalos iniciados.";
+    if (tipo === "rampa") return "Agora é subida. Força total.";
+    if (tipo === "desaquecimento") return "Último bloco. Desacelera.";
 
     return "Treino iniciado.";
   }
 }
 
 // ================================
-// 🔗 INTEGRAÇÃO SIMPLES
+// 🔗 INSTÂNCIA GLOBAL
 // ================================
 
 const coachBrain = new CoachBrain();
-
-// Exemplo de uso dentro do RunExecutor:
-// const resultado = coachBrain.analisar(...)
-// if(resultado?.falar) VoiceEngine.falar(...)
+window.VoiceEngine = VoiceEngine;
+window.coachBrain = coachBrain;
