@@ -1,6 +1,6 @@
 // ATENÇÃO: preencha com os dados do SEU projeto Supabase (Settings > API)
-const SUPABASE_URL = "https://SEU_PROJETO.supabase.co";
-const SUPABASE_ANON_KEY = "SUA_CHAVE_ANON_PUBLICA";
+const SUPABASE_URL = "https://aemwndlufteldrspinur.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlbXduZGx1ZnRlbGRyc3BpbnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MDQzOTksImV4cCI6MjA5ODQ4MDM5OX0.sUXbfekLgBzkLcjLZXcis4FXPyYJg1827Fvu7gLKoPY";
 
 // Carregado via CDN no index.html (adicione antes deste script se preferir),
 // aqui usamos fetch direto para evitar dependência de bundler.
