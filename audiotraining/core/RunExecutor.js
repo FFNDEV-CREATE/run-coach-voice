@@ -6,7 +6,6 @@ export default class RunExecutor {
     this.blocoIndex = 0;
     this.tempoInicioTotal = null;
 
-    this.interval = null;
     this.tempoInicioBloco = null;
 
     this.distanciaTotalM = 0;
@@ -122,37 +121,12 @@ export default class RunExecutor {
     const state = {
       bloco,
       blocoIndex: this.blocoIndex,
-
       paceSegPorKm,
-
       distanciaNoBloco: this.distanciaNoBloco,
       distanciaTotalM: this.distanciaTotalM,
-
       tempoTotalS: this.tempoInicioTotal
         ? (Date.now() - this.tempoInicioTotal) / 1000
         : 0,
-
-      forcarNovoBloco
-    };
-
-    this.onUpdate(state);
-
-   
-  }
-}
-   const state = {
-      bloco,
-      blocoIndex: this.blocoIndex,
-
-      paceSegPorKm,
-
-      distanciaNoBloco: this.distanciaNoBloco,
-      distanciaTotalM: this.distanciaTotalM,
-
-      tempoTotalS: this.tempoInicioTotal
-        ? (Date.now() - this.tempoInicioTotal) / 1000
-        : 0,
-
       forcarNovoBloco
     };
 
@@ -160,25 +134,5 @@ export default class RunExecutor {
   }
 }
 
-   const state = {
-      bloco,
-      blocoIndex: this.blocoIndex,
-
-      paceSegPorKm,
-
-      distanciaNoBloco: this.distanciaNoBloco,
-      distanciaTotalM: this.distanciaTotalM,
-
-      tempoTotalS: this.tempoInicioTotal
-        ? (Date.now() - this.tempoInicioTotal) / 1000
-        : 0,
-
-      forcarNovoBloco
-    };
-
-    this.onUpdate(state);
-
-  }
-}
-
-
+// EXPOSIÇÃO GLOBAL (IMPORTANTE PARA SEU APP ATUAL)
+window.RunExecutor = RunExecutor;
