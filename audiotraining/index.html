@@ -82,9 +82,20 @@
 </main>
 
 <script src="supabase-client.js"></script>
-<script src="voice-engine.js"></script>
-<script src="coach-brain.js"></script>
+
+<!-- CORE DO SISTEMA (OBRIGATÓRIO PRIMEIRO) -->
+<script src="core/RunExecutor.js"></script>
+
+<!-- SIMULADOR / GPS -->
 <script src="simulator.js"></script>
+
+<!-- INTELIGÊNCIA -->
+<script src="coach-brain.js"></script>
+
+<!-- VOZ -->
+<script src="voice-engine.js"></script>
+
+<!-- APP (ORQUESTRADOR FINAL) -->
 <script src="app.js"></script>
   
 </body>
