@@ -123,7 +123,21 @@ document.getElementById("btn-iniciar-exec").addEventListener("click", async () =
 
   const blocos = treinoAtual.blocos.blocos;
 
-  executor = new RunExecutorClass(blocos, atualizarTelaExecucao);
+ executor = new RunExecutor(blocos, (state) => {
+  atualizarTelaExecucao(state);
+
+  const decision = coachBrain.analisar(state);
+
+  if (decision?.falar) {
+    VoiceEngine.falar(decision.texto, {
+      prioridade: decision.prioridade,
+      tipo: decision.tipo
+    });
+  }
+});
+
+
+  
 
   executor.onBlocoCompleto = (idx, bloco, pace, dist, tempo) => {
     if(execucaoId){
