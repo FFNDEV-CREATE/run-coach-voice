@@ -134,4 +134,13 @@ class CoachBrain {
   }
 }
 
+}
+
+// ================================
+// 🌍 INSTÂNCIA GLOBAL
+// ================================
+
+const coachBrain = new CoachBrain();
+
 window.CoachBrain = CoachBrain;
+window.coachBrain = coachBrain;
