@@ -1,5 +1,5 @@
 const SUPABASE_URL = "https://aemwndlufteldrspinur.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIs..."; // mantido
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlbXduZGx1ZnRlbGRyc3BpbnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MDQzOTksImV4cCI6MjA5ODQ4MDM5OX0.sUXbfekLgBzkLcjLZXcis4FXPyYJg1827Fvu7gLKoPY"; // mantido
 
 const headers = {
   "Content-Type": "application/json",
