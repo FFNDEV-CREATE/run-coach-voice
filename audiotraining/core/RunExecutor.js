@@ -1,4 +1,4 @@
-export default class RunExecutor {
+class RunExecutor {
   constructor(blocos = [], onUpdate = () => {}) {
     this.blocos = blocos;
     this.onUpdate = onUpdate;
