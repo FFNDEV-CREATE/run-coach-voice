@@ -1,148 +1,194 @@
-// ================================
-// 🧠 COACH BRAIN v1
-// ================================
+// ==========================================
+// 🧠 COACH BRAIN V2
+// Compatível com RunExecutor V2
+// ==========================================
 
 class CoachBrain {
+
   constructor() {
+
+    this.ultimoBloco = -1;
     this.ultimoAvisoPace = 0;
-    this.estadoPaceAnterior = "ok";
-    this.ultimoBlocoFalado = null;
+    this.ultimoEstadoPace = "ok";
+
   }
 
-  analisar({ bloco, pace, tempoNoBlocoS }) {
-    if (!bloco) return null;
+  analisar(state) {
+
+    if (!state || !state.bloco) return null;
 
     const agora = Date.now();
 
-    // =========================
-    // 🟢 INÍCIO DE BLOCO
-    // =========================
-    if (tempoNoBlocoS <= 2) {
-      if (this.ultimoBlocoFalado !== bloco.id) {
-        this.ultimoBlocoFalado = bloco.id;
+    // =============================
+    // INÍCIO DE BLOCO
+    // =============================
 
-        return {
-          falar: true,
-          prioridade: true,
-          tipo: "bloco",
-          texto: this._falaInicioBloco(bloco)
-        };
-      }
+    if (
+      state.forcarNovoBloco ||
+      state.blocoIndex !== this.ultimoBloco
+    ) {
+
+      this.ultimoBloco = state.blocoIndex;
+
+      return {
+        falar: true,
+        prioridade: true,
+        tipo: "bloco",
+        texto: this.falaInicioBloco(state.bloco)
+      };
+
     }
 
-    // =========================
-    // ⏱ CONTROLE DE TEMPO (TIROS / BLOCO)
-    // =========================
-    if (bloco.duracaoSeg) {
-      const restante = bloco.duracaoSeg - tempoNoBlocoS;
+    // =============================
+    // BLOCO LIVRE
+    // =============================
 
-      if (restante === 30) {
-        return {
-          falar: true,
-          tipo: "tempo",
-          texto: "Faltam 30 segundos."
-        };
-      }
+    if (state.bloco.ritmo_livre) {
 
-      if (restante === 10) {
-        return {
-          falar: true,
-          prioridade: true,
-          tipo: "tempo",
-          texto: "Últimos 10 segundos."
-        };
-      }
+      return null;
+
     }
 
-    // =========================
-    // 🎯 CONTROLE DE PACE
-    // =========================
-    if (bloco.paceMin && bloco.paceMax && pace) {
-      const lento = pace > bloco.paceMax;
-      const rapido = pace < bloco.paceMin;
+    // =============================
+    // SEM PACE
+    // =============================
 
-      const estadoAtual = lento
-        ? "lento"
-        : rapido
-        ? "rapido"
-        : "ok";
+    if (!state.paceSegPorKm) {
 
-      // dentro da zona
-      if (estadoAtual === "ok") {
-        if (this.estadoPaceAnterior !== "ok") {
-          this.estadoPaceAnterior = "ok";
+      return null;
 
-          return {
-            falar: true,
-            tipo: "pace",
-            texto: "Perfeito, voltou ao ritmo."
-          };
-        }
+    }
+
+    const pace = state.paceSegPorKm;
+
+    const lento =
+      pace > state.bloco.pace_alvo_min_seg_km;
+
+    const rapido =
+      pace < state.bloco.pace_alvo_max_seg_km;
+
+    let estado = "ok";
+
+    if (lento) estado = "lento";
+    if (rapido) estado = "rapido";
+
+    // =============================
+    // VOLTOU AO RITMO
+    // =============================
+
+    if (
+      estado === "ok" &&
+      this.ultimoEstadoPace !== "ok"
+    ) {
+
+      this.ultimoEstadoPace = "ok";
+
+      return {
+        falar: true,
+        tipo: "pace",
+        texto: "Perfeito. Ritmo recuperado."
+      };
+
+    }
+
+    // =============================
+    // EVITA SPAM
+    // =============================
+
+    if (estado !== "ok") {
+
+      if (
+        agora - this.ultimoAvisoPace < 12000
+      ) {
 
         return null;
+
       }
 
-      // fora da zona (evita spam)
-      if (agora - this.ultimoAvisoPace > 12000) {
-        this.ultimoAvisoPace = agora;
-        this.estadoPaceAnterior = estadoAtual;
+      this.ultimoAvisoPace = agora;
+      this.ultimoEstadoPace = estado;
 
-        if (estadoAtual === "lento") {
-          return {
-            falar: true,
-            tipo: "pace",
-            texto: "Você está acima do ritmo. Acelera um pouco."
-          };
-        }
+      if (estado === "lento") {
 
-        if (estadoAtual === "rapido") {
-          return {
-            falar: true,
-            tipo: "pace",
-            texto: "Você está rápido demais. Segura um pouco."
-          };
-        }
+        return {
+          falar: true,
+          tipo: "pace",
+          texto: "Acelera um pouco."
+        };
+
       }
+
+      if (estado === "rapido") {
+
+        return {
+          falar: true,
+          tipo: "pace",
+          texto: "Reduz um pouco o ritmo."
+        };
+
+      }
+
     }
 
     return null;
+
   }
 
-  // =========================
-  // 🧭 FRASES DE INÍCIO
-  // =========================
-  _falaInicioBloco(bloco) {
-    switch (bloco.tipo) {
-      case "aquecimento":
-        return "Aquecimento iniciado. Vamos com calma.";
+  // =====================================
 
-      case "corrida_continua":
-        return "Parte principal iniciada. Vamos manter o ritmo.";
+  falaInicioBloco(bloco) {
 
-      case "tiro":
-        return "Começaram os tiros. Foco total.";
+    const nome = (bloco.nome || "").toLowerCase();
 
-      case "rampa":
-        return "Agora é rampa. Dá o seu máximo.";
+    if (nome.includes("aquec")) {
 
-      case "desaquecimento":
-        return "Último bloco. Desacelera agora.";
+      return "Aquecimento iniciado.";
 
-      default:
-        return "Treino iniciado.";
     }
+
+    if (nome.includes("desaque")) {
+
+      return "Último bloco. Desacelera.";
+
+    }
+
+    if (nome.includes("tiro")) {
+
+      return "Começou o tiro.";
+
+    }
+
+    if (nome.includes("recuper")) {
+
+      return "Recuperação.";
+
+    }
+
+    if (nome.includes("interval")) {
+
+      return "Novo intervalo.";
+
+    }
+
+    if (nome.includes("rodagem")) {
+
+      return "Vamos manter o ritmo.";
+
+    }
+
+    return bloco.nome || "Novo bloco.";
+
   }
+
 }
 
-
-
-// ================================
-// 🌍 INSTÂNCIA GLOBAL
-// ================================
+// ==========================================
+// INSTÂNCIA GLOBAL
+// ==========================================
 
 const coachBrain = new CoachBrain();
 
 window.CoachBrain = CoachBrain;
 window.coachBrain = coachBrain;
 
-console.log("CoachBrain carregado", window.coachBrain);
+console.log("🧠 CoachBrain carregado.");
