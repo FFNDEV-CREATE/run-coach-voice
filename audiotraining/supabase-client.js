@@ -141,3 +141,9 @@ const SupabaseClient = {
     );
   }
 };
+
+// ================================
+// 🌍 EXPOSIÇÃO GLOBAL
+// ================================
+
+window.SupabaseClient = SupabaseClient;
