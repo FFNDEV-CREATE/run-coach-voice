@@ -1,253 +1,797 @@
 "use strict";
 
-// ===============================
-// RUN EXECUTOR (compatibilidade)
-// ===============================
-const RunExecutorClass =
-  window.RunExecutor;
+// =======================================================
+// RUN COACH VOICE
+// APP.JS V2
+// =======================================================
 
-// fallback seguro
-if (!RunExecutorClass) {
-  console.error("RunExecutor não carregado. Verifique core/RunExecutor.js");
+// ===============================
+// DEPENDÊNCIAS
+// ===============================
+
+const Dependencies = {
+  SupabaseClient: window.SupabaseClient,
+  RunExecutor: window.RunExecutor,
+  GPSSimulator: window.GPSSimulator,
+  VoiceEngine: window.VoiceEngine,
+  coachBrain: window.coachBrain
+};
+
+function verificarDependencias() {
+
+  const faltando = [];
+
+  if (!Dependencies.SupabaseClient)
+    faltando.push("SupabaseClient");
+
+  if (!Dependencies.RunExecutor)
+    faltando.push("RunExecutor");
+
+  if (!Dependencies.GPSSimulator)
+    faltando.push("GPSSimulator");
+
+  if (!Dependencies.VoiceEngine)
+    faltando.push("VoiceEngine");
+
+  if (!Dependencies.coachBrain)
+    faltando.push("CoachBrain");
+
+  if (faltando.length) {
+    console.error(
+      "Dependências não carregadas:",
+      faltando.join(", ")
+    );
+  }
 }
+
+// ===============================
+// CACHE DA INTERFACE
+// ===============================
+
+const UI = {
+
+  views: {
+    lista: document.getElementById("view-lista"),
+    novo: document.getElementById("view-novo"),
+    execucao: document.getElementById("view-execucao")
+  },
+
+  navButtons:
+    document.querySelectorAll(".navbtn[data-view]"),
+
+  listaTreinos:
+    document.getElementById("lista-treinos"),
+
+  novoTreino: {
+
+    texto:
+      document.getElementById("texto-treino"),
+
+    interpretar:
+      document.getElementById("btn-interpretar"),
+
+    salvar:
+      document.getElementById("btn-salvar-treino"),
+
+    descartar:
+      document.getElementById("btn-descartar"),
+
+    erro:
+      document.getElementById("erro-interpretar"),
+
+    revisao:
+      document.getElementById("revisao-blocos"),
+
+    listaBlocos:
+      document.getElementById("lista-blocos-revisao")
+  },
+
+  execucao: {
+
+    blocoNome:
+      document.getElementById("exec-bloco-nome"),
+
+    status:
+      document.getElementById("exec-status-msg"),
+
+    paceAtual:
+      document.getElementById("exec-pace-atual"),
+
+    distanciaBloco:
+      document.getElementById("exec-distancia-bloco"),
+
+    metaBloco:
+      document.getElementById("exec-meta-bloco"),
+
+    tempoTotal:
+      document.getElementById("exec-tempo-total"),
+
+    distanciaTotal:
+      document.getElementById("exec-distancia-total"),
+
+    paceRing:
+      document.getElementById("exec-pace-ring"),
+
+    timeline:
+      document.getElementById("exec-timeline"),
+
+    iniciar:
+      document.getElementById("btn-iniciar-exec"),
+
+    simular:
+      document.getElementById("btn-simular-exec"),
+
+    parar:
+      document.getElementById("btn-parar")
+  }
+
+};
+
+// ===============================
+// ESTADO GLOBAL
+// ===============================
+
+const AppState = {
+
+  treinoAtual: null,
+
+  executor: null,
+
+  gpsTracker: null,
+
+  execucaoId: null,
+
+  blocosInterpretados: null,
+
+  tituloInterpretado: "",
+
+  modo: null,
+
+  executando: false
+
+};
 
 // ===============================
 // NAVEGAÇÃO
 // ===============================
-function mostrarView(nome){
-  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  document.getElementById(`view-${nome}`).classList.add("active");
-  document.querySelectorAll(".navbtn").forEach(b => b.classList.remove("active"));
-  const btn = document.querySelector(`.navbtn[data-view="${nome}"]`);
-  if(btn) btn.classList.add("active");
+
+const Navigation = {
+
+  mostrar(view) {
+
+    Object.values(UI.views)
+      .forEach(v => v.classList.remove("active"));
+
+    UI.views[view].classList.add("active");
+
+    UI.navButtons.forEach(btn =>
+      btn.classList.remove("active")
+    );
+
+    const ativo = document.querySelector(
+      `.navbtn[data-view="${view}"]`
+    );
+
+    if (ativo)
+      ativo.classList.add("active");
+
+  },
+
+  configurar() {
+
+    UI.navButtons.forEach(btn => {
+
+      btn.addEventListener("click", () => {
+
+        const view = btn.dataset.view;
+
+        Navigation.mostrar(view);
+
+        if (view === "lista") {
+
+          TrainingList.carregar();
+
+        }
+
+      });
+
+    });
+
+  }
+
+};
+
+// ===============================
+// HELPERS
+// ===============================
+
+function formatTempo(segundos) {
+
+  segundos = Math.max(0, Math.floor(segundos || 0));
+
+  const m = Math.floor(segundos / 60);
+  const s = segundos % 60;
+
+  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+
 }
 
-document.querySelectorAll(".navbtn[data-view]").forEach(btn=>{
-  btn.addEventListener("click", () => {
-    mostrarView(btn.dataset.view);
-    if(btn.dataset.view === "lista") carregarTreinos();
-  });
-});
+function formatPaceMinKm(segundos) {
+
+  if(!segundos) return "--:--";
+
+  const m = Math.floor(segundos / 60);
+  const s = Math.round(segundos % 60);
+
+  return `${m}:${String(s).padStart(2,"0")}`;
+
+}
+
+function formatarTempoBloco(segundos){
+
+  if(segundos < 60)
+    return `${segundos} seg`;
+
+  if(segundos % 60 === 0)
+    return `${segundos/60} min`;
+
+  return `${Math.floor(segundos/60)}min ${segundos%60}seg`;
+
+}
+
+function obterBlocos(treino){
+
+  return treino?.blocos?.blocos || [];
+
+}
 
 // ===============================
 // LISTA DE TREINOS
 // ===============================
-async function carregarTreinos(){
-  const container = document.getElementById("lista-treinos");
-  container.innerHTML = `<p class="empty-state">Carregando treinos…</p>`;
 
-  try{
-    const treinos = await SupabaseClient.listarTreinos();
+const TrainingList = {
 
-    if(!treinos?.length){
-      container.innerHTML = `<p class="empty-state">Nenhum treino ainda. Toque em "Novo treino".</p>`;
-      return;
-    }
+  async carregar(){
 
-    container.innerHTML = "";
-
-    treinos.forEach(t => {
-      const card = document.createElement("div");
-      card.className = "treino-card";
-
-      const nBlocos = (t.blocos?.blocos || []).length;
-
-      card.innerHTML = `
-        <h3>${t.titulo}</h3>
-        <p>${nBlocos} blocos · ${new Date(t.criado_em).toLocaleDateString("pt-BR")}</p>
-      `;
-
-      card.addEventListener("click", () => abrirExecucao(t));
-      container.appendChild(card);
-    });
-
-  } catch(e){
-    console.error(e);
-    container.innerHTML = `<p class="empty-state">Erro ao carregar treinos.</p>`;
-  }
-}
-
-// ===============================
-// VARIÁVEIS GLOBAIS
-// ===============================
-let blocosInterpretados = null;
-let tituloInterpretado = "";
-
-let treinoAtual = null;
-let executor = null;
-let gpsTracker = null;
-let execucaoId = null;
-
-// ===============================
-// EXECUÇÃO TREINO
-// ===============================
-function abrirExecucao(treino){
-  treinoAtual = treino;
-
-  mostrarView("execucao");
-
-  document.getElementById("exec-bloco-nome").textContent = treino.titulo;
-  document.getElementById("exec-status-msg").textContent = "Toque em iniciar";
-
-  document.getElementById("btn-iniciar-exec").hidden = false;
-  document.getElementById("btn-simular-exec").hidden = false;
-
-  renderTimeline(treino.blocos.blocos, -1);
-}
-
-function renderTimeline(blocos, indexAtual){
-  const tl = document.getElementById("exec-timeline");
-  tl.innerHTML = "";
-
-  blocos.forEach((b,i)=>{
-    const item = document.createElement("div");
-    item.className =
-      "tl-item " +
-      (i < indexAtual ? "done" : i === indexAtual ? "current" : "");
-    tl.appendChild(item);
-  });
-}
-
-// ===============================
-// INICIAR TREINO (GPS)
-// ===============================
-document.getElementById("btn-iniciar-exec").addEventListener("click", async () => {
-  if(!treinoAtual || !RunExecutorClass) return;
-
-  try{
-    const exec = await SupabaseClient.criarExecucao(treinoAtual.id);
-    execucaoId = exec?.[0]?.id || null;
-  } catch(e){
-    console.warn("Execução offline");
-  }
-
-  const blocos = treinoAtual.blocos.blocos;
-
- executor = new RunExecutor(blocos, (state) => {
-  atualizarTelaExecucao(state);
-
-  const decision = coachBrain.analisar(state);
-
-  if (decision?.falar) {
-    VoiceEngine.falar(decision.texto, {
-      prioridade: decision.prioridade,
-      tipo: decision.tipo
-    });
-  }
-});
-
-
-  
-
-  executor.onBlocoCompleto = (idx, bloco, pace, dist, tempo) => {
-    if(execucaoId){
-      SupabaseClient.salvarBlocoExecutado(
-        execucaoId,
-        idx,
-        bloco,
-        pace,
-        dist,
-        tempo
-      ).catch(()=>{});
-    }
-
-    renderTimeline(blocos, executor.blocoIndex);
-  };
-
-  executor.onFinalizado = async () => {
-    document.getElementById("exec-status-msg").textContent = "Treino concluído 🎉";
-    document.getElementById("btn-iniciar-exec").hidden = true;
+    UI.listaTreinos.innerHTML =
+      `<p class="empty-state">Carregando treinos...</p>`;
 
     try{
-      if(execucaoId && gpsTracker){
-        await SupabaseClient.finalizarExecucao(
-          execucaoId,
-          gpsTracker.distanciaTotalM,
-          (Date.now()-executor.tempoInicioTotal)/1000
-        );
+
+      const treinos =
+        await Dependencies.SupabaseClient.listarTreinos();
+
+      if(!treinos.length){
+
+        UI.listaTreinos.innerHTML =
+          `<p class="empty-state">Nenhum treino encontrado.</p>`;
+
+        return;
+
       }
-    } catch(e){}
 
-    gpsTracker?.parar();
-  };
+      UI.listaTreinos.innerHTML = "";
 
-  gpsTracker = new GPSTracker((update)=>executor.atualizar(update));
+      treinos.forEach(treino=>{
 
-  try{
-    gpsTracker.iniciar();
-  } catch(e){
-    alert("GPS indisponível");
-    return;
+        const card = document.createElement("div");
+
+        card.className = "treino-card";
+
+        card.innerHTML = `
+          <h3>${treino.titulo}</h3>
+          <p>${obterBlocos(treino).length} blocos</p>
+        `;
+
+        card.onclick = ()=>ExecutionController.abrir(treino);
+
+        UI.listaTreinos.appendChild(card);
+
+      });
+
+    }
+
+    catch(e){
+
+      console.error(e);
+
+      UI.listaTreinos.innerHTML =
+      `<p class="empty-state">Erro ao carregar treinos.</p>`;
+
+    }
+
   }
 
-  executor.iniciar();
-  renderTimeline(blocos, 0);
-
-  document.getElementById("btn-iniciar-exec").hidden = true;
-});
+};
 
 // ===============================
-// SIMULAÇÃO
+// NOVO TREINO
 // ===============================
-document.getElementById("btn-simular-exec").addEventListener("click", async () => {
-  if(!treinoAtual || !RunExecutorClass) return;
 
-  const blocos = treinoAtual.blocos.blocos;
+const NewTraining = {
 
-  executor = new RunExecutorClass(blocos, atualizarTelaExecucao);
+  configurar(){
 
-  executor.onBlocoCompleto = (idx, bloco, pace, dist, tempo) => {
-    renderTimeline(blocos, executor.blocoIndex);
-  };
+    UI.novoTreino.interpretar.onclick =
+      ()=>this.interpretar();
 
-  executor.onFinalizado = () => {
-    document.getElementById("exec-status-msg").textContent = "Simulação concluída 🎉";
-  };
+    UI.novoTreino.salvar.onclick =
+      ()=>this.salvar();
 
-  gpsTracker = new GPSSimulator((update)=>executor.atualizar(update));
-  gpsTracker.iniciar();
+    UI.novoTreino.descartar.onclick =
+      ()=>this.descartar();
 
-  executor.iniciar();
-  renderTimeline(blocos, 0);
+  },
 
-  document.getElementById("btn-simular-exec").hidden = true;
-  document.getElementById("btn-iniciar-exec").hidden = true;
-});
+  async interpretar(){
 
-// ===============================
-// PARAR
-// ===============================
-document.getElementById("btn-parar").addEventListener("click", async () => {
-  if(!confirm("Parar treino?")) return;
+    const texto =
+      UI.novoTreino.texto.value.trim();
 
-  gpsTracker?.parar();
+    if(!texto){
 
-  if(execucaoId && executor){
-    await SupabaseClient.finalizarExecucao(
-      execucaoId,
-      gpsTracker?.distanciaTotalM || 0,
-      (Date.now()-executor.tempoInicioTotal)/1000
-    ).catch(()=>{});
+      UI.novoTreino.erro.hidden = false;
+      UI.novoTreino.erro.textContent =
+      "Digite um treino.";
+
+      return;
+
+    }
+
+    UI.novoTreino.erro.hidden = true;
+
+    try{
+
+      const resultado =
+      await Dependencies.SupabaseClient.parseTreino(texto);
+
+      AppState.blocosInterpretados =
+      resultado.blocos;
+
+      AppState.tituloInterpretado =
+      resultado.titulo;
+
+      this.renderizar(resultado.blocos);
+
+    }
+
+    catch(e){
+
+      UI.novoTreino.erro.hidden = false;
+
+      UI.novoTreino.erro.textContent =
+      e.message;
+
+    }
+
+  },
+
+  renderizar(blocos){
+
+    UI.novoTreino.listaBlocos.innerHTML="";
+
+    blocos.forEach(bloco=>{
+
+      const card=document.createElement("div");
+
+      card.className =
+      "bloco-card"+(bloco.ritmo_livre?" livre":"");
+
+      const pace = bloco.ritmo_livre
+      ? "Ritmo livre"
+      : `${formatPaceMinKm(bloco.pace_alvo_max_seg_km)}
+         - ${formatPaceMinKm(bloco.pace_alvo_min_seg_km)}`;
+
+      card.innerHTML=`
+
+      <div>
+
+      <div class="bloco-nome">
+      ${bloco.nome}
+      </div>
+
+      <div class="bloco-meta">
+
+      ${
+        bloco.meta_tipo==="distancia"
+        ? bloco.meta_valor+" m"
+        : formatarTempoBloco(bloco.meta_valor)
+      }
+
+      </div>
+
+      </div>
+
+      <div class="bloco-pace">
+
+      ${pace}
+
+      </div>
+
+      `;
+
+      UI.novoTreino.listaBlocos.appendChild(card);
+
+    });
+
+    UI.novoTreino.revisao.hidden=false;
+
+  },
+
+  async salvar(){
+
+    await Dependencies.SupabaseClient.salvarTreino(
+
+      AppState.tituloInterpretado,
+
+      UI.novoTreino.texto.value,
+
+      {
+        blocos:AppState.blocosInterpretados
+      }
+
+    );
+
+    Navigation.mostrar("lista");
+
+    TrainingList.carregar();
+
+  },
+
+  descartar(){
+
+    AppState.blocosInterpretados = null;
+
+    UI.novoTreino.revisao.hidden = true;
+
   }
 
-  executor = null;
-
-  mostrarView("lista");
-  carregarTreinos();
-});
+};
 
 // ===============================
-// UI UPDATE
+// EXECUTION CONTROLLER
 // ===============================
-function atualizarTelaExecucao(state){
-  document.getElementById("exec-bloco-nome").textContent = state.bloco.nome;
-  document.getElementById("exec-pace-atual").textContent = formatPaceMinKm(state.paceSegPorKm);
-  document.getElementById("exec-distancia-bloco").textContent = `${Math.round(state.distanciaNoBloco)} m`;
-  document.getElementById("exec-tempo-total").textContent = formatTempo(state.tempoTotalS);
-  document.getElementById("exec-distancia-total").textContent = `${(state.distanciaTotalM/1000).toFixed(2)} km`;
+
+const ExecutionController = {
+
+  abrir(treino){
+
+    AppState.treinoAtual = treino;
+
+    Navigation.mostrar("execucao");
+
+    UI.execucao.blocoNome.textContent = treino.titulo;
+
+    UI.execucao.status.textContent =
+      "Toque em iniciar para começar";
+
+    UI.execucao.iniciar.hidden = false;
+    UI.execucao.simular.hidden = false;
+
+    this.renderTimeline(obterBlocos(treino),-1);
+
+  },
+
+  configurar(){
+
+    UI.execucao.iniciar.onclick =
+      ()=>this.iniciarGPS();
+
+    UI.execucao.simular.onclick =
+      ()=>this.iniciarSimulacao();
+
+    UI.execucao.parar.onclick =
+      ()=>this.parar();
+
+  },
+
+  async iniciarGPS(){
+
+    AppState.modo="gps";
+
+    try{
+
+      const exec=
+      await Dependencies.SupabaseClient.criarExecucao(
+        AppState.treinoAtual.id
+      );
+
+      AppState.execucaoId=exec?.[0]?.id;
+
+    }catch(e){
+
+      console.warn("Modo offline");
+
+    }
+
+    this.iniciarExecutor();
+
+    AppState.gpsTracker =
+      new GPSTracker(update=>{
+
+        AppState.executor.atualizar(update);
+
+      });
+
+    AppState.gpsTracker.iniciar();
+
+  },
+
+  iniciarSimulacao(){
+
+    AppState.modo="simulador";
+
+    this.iniciarExecutor();
+
+    AppState.gpsTracker =
+      new GPSSimulator(update=>{
+
+        AppState.executor.atualizar(update);
+
+      });
+
+    AppState.gpsTracker.iniciar();
+
+  },
+
+  iniciarExecutor(){
+
+    const blocos =
+      obterBlocos(AppState.treinoAtual);
+
+    AppState.executor =
+      new RunExecutor(blocos,state=>{
+
+        this.atualizarTela(state);
+
+        const resposta =
+          coachBrain.analisar(state);
+
+        if(resposta?.falar){
+
+          VoiceEngine.falar(
+
+            resposta.texto,
+
+            {
+              prioridade:resposta.prioridade,
+              tipo:resposta.tipo
+            }
+
+          );
+
+        }
+
+      });
+
+    AppState.executor.onBlocoCompleto =
+      (idx,bloco,pace,dist,tempo)=>{
+
+      this.renderTimeline(
+        blocos,
+        AppState.executor.blocoIndex
+      );
+
+      if(AppState.execucaoId){
+
+        Dependencies.SupabaseClient
+        .salvarBlocoExecutado(
+
+          AppState.execucaoId,
+
+          idx,
+
+          bloco,
+
+          pace,
+
+          dist,
+
+          tempo
+
+        ).catch(()=>{});
+
+      }
+
+    };
+
+    AppState.executor.onFinalizado =
+      ()=>this.finalizar();
+
+    AppState.executor.iniciar();
+
+    UI.execucao.iniciar.hidden=true;
+    UI.execucao.simular.hidden=true;
+
+    this.renderTimeline(blocos,0);
+
+  },
+
+  async finalizar(){
+
+    UI.execucao.status.textContent =
+      "Treino concluído 🎉";
+
+    AppState.gpsTracker?.parar();
+
+    if(AppState.execucaoId){
+
+      try{
+
+        await Dependencies
+        .SupabaseClient
+        .finalizarExecucao(
+
+          AppState.execucaoId,
+
+          AppState.gpsTracker.distanciaTotalM,
+
+          (Date.now()-
+          AppState.executor.tempoInicioTotal)/1000
+
+        );
+
+      }
+
+      catch(e){}
+
+    }
+
+  },
+
+  async parar(){
+
+    if(!confirm("Parar treino?"))
+      return;
+
+    AppState.gpsTracker?.parar();
+
+    if(AppState.execucaoId){
+
+      try{
+
+        await Dependencies
+        .SupabaseClient
+        .finalizarExecucao(
+
+          AppState.execucaoId,
+
+          AppState.gpsTracker?.distanciaTotalM||0,
+
+          (Date.now()-
+          AppState.executor.tempoInicioTotal)/1000
+
+        );
+
+      }
+
+      catch(e){}
+
+    }
+
+    Navigation.mostrar("lista");
+
+    TrainingList.carregar();
+
+  },
+
+  atualizarTela(state){
+
+    UI.execucao.blocoNome.textContent =
+      state.bloco.nome;
+
+    UI.execucao.paceAtual.textContent =
+      formatPaceMinKm(state.paceSegPorKm);
+
+    UI.execucao.distanciaBloco.textContent =
+      Math.round(state.distanciaNoBloco)+" m";
+
+    UI.execucao.metaBloco.textContent =
+      state.bloco.meta_tipo==="distancia"
+
+      ? state.bloco.meta_valor+" m"
+
+      : formatarTempoBloco(state.bloco.meta_valor);
+
+    UI.execucao.tempoTotal.textContent =
+      formatTempo(state.tempoTotalS);
+
+    UI.execucao.distanciaTotal.textContent =
+      (state.distanciaTotalM/1000).toFixed(2)+" km";
+
+    const ring = UI.execucao.paceRing;
+
+    ring.classList.remove(
+      "ok",
+      "rapido",
+      "lento"
+    );
+
+    if(
+      !state.bloco.ritmo_livre &&
+      state.paceSegPorKm
+    ){
+
+      if(
+        state.paceSegPorKm >
+        state.bloco.pace_alvo_min_seg_km+5
+      ){
+
+        ring.classList.add("lento");
+
+      }
+
+      else if(
+
+        state.paceSegPorKm <
+        state.bloco.pace_alvo_max_seg_km-5
+
+      ){
+
+        ring.classList.add("rapido");
+
+      }
+
+      else{
+
+        ring.classList.add("ok");
+
+      }
+
+    }
+
+  },
+
+    renderTimeline(blocos, indiceAtual){
+
+    UI.execucao.timeline.innerHTML = "";
+
+    blocos.forEach((bloco,index)=>{
+
+      const item = document.createElement("div");
+
+      item.className = "tl-item";
+
+      if(index < indiceAtual){
+
+        item.classList.add("done");
+
+      }
+      else if(index === indiceAtual){
+
+        item.classList.add("current");
+
+      }
+
+      UI.execucao.timeline.appendChild(item);
+
+    });
+
+  }
+
+};
+
+// ===============================
+// INICIALIZAÇÃO
+// ===============================
+
+function inicializarAplicacao(){
+
+  verificarDependencias();
+
+  Navigation.configurar();
+
+  NewTraining.configurar();
+
+  ExecutionController.configurar();
+
+  TrainingList.carregar();
+
+  console.log("🏃 Run Coach Voice iniciado.");
+
 }
 
-// ===============================
-// INIT
-// ===============================
-carregarTreinos();
+document.addEventListener(
+  "DOMContentLoaded",
+  inicializarAplicacao
+);
