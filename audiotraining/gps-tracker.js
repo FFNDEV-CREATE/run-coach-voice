@@ -1,23 +1,25 @@
 // ==========================================
-// 🛰️ GPS TRACKER V2
-// Distância + pace + filtro básico de precisão
+// 🛰️ GPS TRACKER V3
+// Distância + pace + modo teste com movimento
 // ==========================================
 
 class GPSTracker {
 
-constructor(onUpdate) {
-  this.onUpdate = onUpdate;
+  constructor(onUpdate) {
+    this.onUpdate = onUpdate;
 
-  this.watchId = null;
-  this.ativo = false;
+    this.watchId = null;
+    this.ativo = false;
 
-  this.modoTeste = false;
+    this.modoTeste = false;
 
-  this.distanciaTotalM = 0;
+    this.distanciaTotalM = 0;
 
-  this.ultimaPosicao = null;
-  this.ultimoTimestamp = null;
-}
+    this.ultimaPosicao = null;
+    this.ultimoTimestamp = null;
+
+    this.velocidadeTesteMS = 2.8; // ~5:57/km
+  }
 
   iniciar() {
     if (this.ativo) return;
@@ -57,11 +59,10 @@ constructor(onUpdate) {
 
     if (!coords) return;
 
-    // descarta sinal muito ruim (exceto em modo teste)
-if (coords.accuracy && coords.accuracy > 200 && !this.modoTeste) {
-  console.warn("GPS descartado por baixa precisão:", coords.accuracy);
-  return;
-}
+    if (coords.accuracy && coords.accuracy > 200 && !this.modoTeste) {
+      console.warn("GPS descartado por baixa precisão:", coords.accuracy);
+      return;
+    }
 
     const atual = {
       latitude: coords.latitude,
@@ -77,22 +78,27 @@ if (coords.accuracy && coords.accuracy > 200 && !this.modoTeste) {
       return;
     }
 
-    const distanciaDeltaM = this._calcularDistanciaM(
+    let distanciaDeltaM = this._calcularDistanciaM(
       this.ultimaPosicao.latitude,
       this.ultimaPosicao.longitude,
       atual.latitude,
       atual.longitude
     );
 
-    const tempoDeltaS =
-      (atual.timestamp - this.ultimoTimestamp) / 1000;
+    let tempoDeltaS = (atual.timestamp - this.ultimoTimestamp) / 1000;
 
     if (tempoDeltaS <= 0) return;
 
-    // descarta saltos absurdos
-    const velocidadeMS = distanciaDeltaM / tempoDeltaS;
+    let velocidadeMS = distanciaDeltaM / tempoDeltaS;
 
-    if (velocidadeMS > 8) {
+    // modo teste: se o computador estiver parado, simula movimento
+    if (this.modoTeste && distanciaDeltaM < 0.5) {
+      const variacao = (Math.random() - 0.5) * 0.3;
+      velocidadeMS = Math.max(2.2, Math.min(3.4, this.velocidadeTesteMS + variacao));
+      distanciaDeltaM = velocidadeMS * tempoDeltaS;
+    }
+
+    if (velocidadeMS > 8 && !this.modoTeste) {
       console.warn("GPS descartado por salto irreal:", velocidadeMS);
       return;
     }
@@ -114,13 +120,12 @@ if (coords.accuracy && coords.accuracy > 200 && !this.modoTeste) {
       velocidadeMS,
       accuracy: atual.accuracy,
       tempo: Date.now(),
-      origem: "gps"
+      origem: this.modoTeste ? "gps-teste" : "gps"
     });
   }
 
   _calcularDistanciaM(lat1, lon1, lat2, lon2) {
     const R = 6371000;
-
     const rad = Math.PI / 180;
 
     const dLat = (lat2 - lat1) * rad;
@@ -139,10 +144,6 @@ if (coords.accuracy && coords.accuracy > 200 && !this.modoTeste) {
   }
 
 }
-
-// ==========================================
-// 🌍 EXPOSIÇÃO GLOBAL
-// ==========================================
 
 window.GPSTracker = GPSTracker;
 
