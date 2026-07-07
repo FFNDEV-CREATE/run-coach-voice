@@ -1,6 +1,6 @@
 // ==========================================
-// 🛰️ GPS TRACKER V3
-// Distância + pace + modo teste com movimento
+// 🛰️ GPS TRACKER V4
+// GPS real + modo teste com movimento automático
 // ==========================================
 
 class GPSTracker {
@@ -9,8 +9,9 @@ class GPSTracker {
     this.onUpdate = onUpdate;
 
     this.watchId = null;
-    this.ativo = false;
+    this.intervaloTeste = null;
 
+    this.ativo = false;
     this.modoTeste = false;
 
     this.distanciaTotalM = 0;
@@ -48,7 +49,12 @@ class GPSTracker {
       navigator.geolocation.clearWatch(this.watchId);
     }
 
+    if (this.intervaloTeste !== null) {
+      clearInterval(this.intervaloTeste);
+    }
+
     this.watchId = null;
+    this.intervaloTeste = null;
     this.ativo = false;
 
     console.log("🛑 GPSTracker parado.");
@@ -74,10 +80,20 @@ class GPSTracker {
     if (!this.ultimaPosicao) {
       this.ultimaPosicao = atual;
       this.ultimoTimestamp = atual.timestamp;
+
       console.log("📍 Primeiro ponto GPS recebido.");
+
+      if (this.modoTeste) {
+        this._iniciarMovimentoTeste();
+      }
+
       return;
     }
 
+    this._gerarUpdatePorPosicao(atual);
+  }
+
+  _gerarUpdatePorPosicao(atual) {
     let distanciaDeltaM = this._calcularDistanciaM(
       this.ultimaPosicao.latitude,
       this.ultimaPosicao.longitude,
@@ -91,11 +107,10 @@ class GPSTracker {
 
     let velocidadeMS = distanciaDeltaM / tempoDeltaS;
 
-    // modo teste: se o computador estiver parado, simula movimento
     if (this.modoTeste && distanciaDeltaM < 0.5) {
-      const variacao = (Math.random() - 0.5) * 0.3;
-      velocidadeMS = Math.max(2.2, Math.min(3.4, this.velocidadeTesteMS + variacao));
-      distanciaDeltaM = velocidadeMS * tempoDeltaS;
+      const simulado = this._gerarMovimentoTeste(tempoDeltaS);
+      distanciaDeltaM = simulado.distanciaDeltaM;
+      velocidadeMS = simulado.velocidadeMS;
     }
 
     if (velocidadeMS > 8 && !this.modoTeste) {
@@ -103,6 +118,46 @@ class GPSTracker {
       return;
     }
 
+    this._emitirUpdate(distanciaDeltaM, velocidadeMS, atual.accuracy, this.modoTeste ? "gps-teste" : "gps");
+
+    this.ultimaPosicao = atual;
+    this.ultimoTimestamp = atual.timestamp;
+  }
+
+  _iniciarMovimentoTeste() {
+    if (this.intervaloTeste !== null) return;
+
+    this.intervaloTeste = setInterval(() => {
+      if (!this.ativo || !this.modoTeste) return;
+
+      const simulado = this._gerarMovimentoTeste(1);
+
+      this._emitirUpdate(
+        simulado.distanciaDeltaM,
+        simulado.velocidadeMS,
+        this.ultimaPosicao?.accuracy || null,
+        "gps-teste"
+      );
+    }, 1000);
+
+    console.log("🧪 Movimento GPS teste iniciado.");
+  }
+
+  _gerarMovimentoTeste(tempoDeltaS) {
+    const variacao = (Math.random() - 0.5) * 0.4;
+
+    const velocidadeMS = Math.max(
+      2.2,
+      Math.min(3.6, this.velocidadeTesteMS + variacao)
+    );
+
+    return {
+      velocidadeMS,
+      distanciaDeltaM: velocidadeMS * tempoDeltaS
+    };
+  }
+
+  _emitirUpdate(distanciaDeltaM, velocidadeMS, accuracy, origem) {
     this.distanciaTotalM += distanciaDeltaM;
 
     const paceSegPorKm =
@@ -110,17 +165,14 @@ class GPSTracker {
         ? 1000 / velocidadeMS
         : null;
 
-    this.ultimaPosicao = atual;
-    this.ultimoTimestamp = atual.timestamp;
-
     this.onUpdate({
       distanciaDeltaM,
       distanciaTotalM: this.distanciaTotalM,
       paceSegPorKm,
       velocidadeMS,
-      accuracy: atual.accuracy,
+      accuracy,
       tempo: Date.now(),
-      origem: this.modoTeste ? "gps-teste" : "gps"
+      origem
     });
   }
 
