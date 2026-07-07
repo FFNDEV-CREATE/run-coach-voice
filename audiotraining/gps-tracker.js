@@ -5,17 +5,19 @@
 
 class GPSTracker {
 
-  constructor(onUpdate) {
-    this.onUpdate = onUpdate;
+constructor(onUpdate) {
+  this.onUpdate = onUpdate;
 
-    this.watchId = null;
-    this.ativo = false;
+  this.watchId = null;
+  this.ativo = false;
 
-    this.distanciaTotalM = 0;
+  this.modoTeste = false;
 
-    this.ultimaPosicao = null;
-    this.ultimoTimestamp = null;
-  }
+  this.distanciaTotalM = 0;
+
+  this.ultimaPosicao = null;
+  this.ultimoTimestamp = null;
+}
 
   iniciar() {
     if (this.ativo) return;
@@ -55,11 +57,11 @@ class GPSTracker {
 
     if (!coords) return;
 
-    // descarta sinal muito ruim
-    if (coords.accuracy && coords.accuracy > 80) {
-      console.warn("GPS descartado por baixa precisão:", coords.accuracy);
-      return;
-    }
+    // descarta sinal muito ruim (exceto em modo teste)
+if (coords.accuracy && coords.accuracy > 200 && !this.modoTeste) {
+  console.warn("GPS descartado por baixa precisão:", coords.accuracy);
+  return;
+}
 
     const atual = {
       latitude: coords.latitude,
