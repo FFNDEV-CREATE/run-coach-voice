@@ -134,7 +134,7 @@ class CoachBrain {
   }
 }
 
-}
+
 
 // ================================
 // 🌍 INSTÂNCIA GLOBAL
