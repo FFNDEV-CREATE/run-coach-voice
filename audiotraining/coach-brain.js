@@ -1,6 +1,6 @@
 // ==========================================
-// 🧠 COACH BRAIN V3
-// Treinadora de voz para conduzir o treino
+// 🧠 COACH BRAIN V4
+// Treinadora de voz com transições antecipadas
 // ==========================================
 
 class CoachBrain {
@@ -18,10 +18,6 @@ class CoachBrain {
     const agora = Date.now();
     const bloco = state.bloco;
 
-    // =============================
-    // INÍCIO DE BLOCO
-    // =============================
-
     if (state.forcarNovoBloco || state.blocoIndex !== this.ultimoBloco) {
       this.ultimoBloco = state.blocoIndex;
       this.ultimoEstadoPace = "ok";
@@ -36,45 +32,21 @@ class CoachBrain {
       };
     }
 
-    // =============================
-    // AVISOS DE PROGRESSO DO BLOCO
-    // =============================
-
     const avisoProgresso = this.analisarProgresso(state);
+    if (avisoProgresso) return avisoProgresso;
 
-    if (avisoProgresso) {
-      return avisoProgresso;
-    }
-
-    // =============================
-    // BLOCO SEM PACE ALVO
-    // =============================
-
-    if (bloco.ritmo_livre) {
-      return null;
-    }
-
-    if (!state.paceSegPorKm) {
-      return null;
-    }
-
-    // =============================
-    // CONTROLE DE PACE
-    // =============================
+    if (bloco.ritmo_livre || !state.paceSegPorKm) return null;
 
     const pace = state.paceSegPorKm;
-
     const lento = pace > bloco.pace_alvo_min_seg_km + 8;
     const rapido = pace < bloco.pace_alvo_max_seg_km - 8;
 
     let estado = "ok";
-
     if (lento) estado = "lento";
     if (rapido) estado = "rapido";
 
     if (estado === "ok" && this.ultimoEstadoPace !== "ok") {
       this.ultimoEstadoPace = "ok";
-
       return {
         falar: true,
         tipo: "pace",
@@ -83,44 +55,29 @@ class CoachBrain {
     }
 
     if (estado !== "ok") {
-      if (agora - this.ultimoAvisoPace < 15000) {
-        return null;
-      }
+      if (agora - this.ultimoAvisoPace < 15000) return null;
 
       this.ultimoAvisoPace = agora;
       this.ultimoEstadoPace = estado;
 
-      if (estado === "lento") {
-        return {
-          falar: true,
-          tipo: "pace",
-          texto: "Você está um pouco abaixo do ritmo. Acelera aos poucos."
-        };
-      }
-
-      if (estado === "rapido") {
-        return {
-          falar: true,
-          tipo: "pace",
-          texto: "Você está um pouco rápida. Segura um pouco para não quebrar."
-        };
-      }
+      return {
+        falar: true,
+        tipo: "pace",
+        texto: estado === "lento"
+          ? "Você está um pouco abaixo do ritmo. Acelera aos poucos."
+          : "Você está um pouco rápida. Segura um pouco para não quebrar."
+      };
     }
 
     return null;
   }
 
-  // ==========================================
-  // PROGRESSO DO BLOCO
-  // ==========================================
-
   analisarProgresso(state) {
     const bloco = state.bloco;
-
     if (!bloco || !bloco.meta_tipo || !bloco.meta_valor) return null;
 
     let progresso = 0;
-    let restante = 0;
+    let restante = null;
 
     if (bloco.meta_tipo === "distancia") {
       progresso = state.distanciaNoBloco / bloco.meta_valor;
@@ -128,18 +85,14 @@ class CoachBrain {
     }
 
     if (bloco.meta_tipo === "tempo") {
-      progresso = state.tempoNoBlocoS
-        ? state.tempoNoBlocoS / bloco.meta_valor
-        : 0;
-
-      restante = state.tempoNoBlocoS
-        ? bloco.meta_valor - state.tempoNoBlocoS
-        : null;
+      progresso = state.tempoNoBlocoS / bloco.meta_valor;
+      restante = bloco.meta_valor - state.tempoNoBlocoS;
     }
 
     if (!isFinite(progresso)) return null;
 
-    // Metade do bloco
+    const proximoTexto = this.textoProximoBloco(state.proximoBloco);
+
     if (progresso >= 0.5 && !this.ultimoAvisoProgresso.metade) {
       this.ultimoAvisoProgresso.metade = true;
 
@@ -150,7 +103,6 @@ class CoachBrain {
       };
     }
 
-    // Avisos finais por distância
     if (bloco.meta_tipo === "distancia") {
       if (restante <= 100 && restante > 60 && !this.ultimoAvisoProgresso.faltam100) {
         this.ultimoAvisoProgresso.faltam100 = true;
@@ -158,7 +110,9 @@ class CoachBrain {
         return {
           falar: true,
           tipo: "progresso",
-          texto: "Faltam cem metros."
+          texto: proximoTexto
+            ? `Faltam cem metros. Depois entra ${proximoTexto}.`
+            : "Faltam cem metros."
         };
       }
 
@@ -169,20 +123,23 @@ class CoachBrain {
           falar: true,
           prioridade: true,
           tipo: "progresso",
-          texto: "Últimos cinquenta metros. Mantém."
+          texto: proximoTexto
+            ? `Últimos cinquenta metros. Em seguida, ${proximoTexto}.`
+            : "Últimos cinquenta metros. Mantém."
         };
       }
     }
 
-    // Avisos finais por tempo
-    if (bloco.meta_tipo === "tempo" && restante !== null) {
+    if (bloco.meta_tipo === "tempo") {
       if (restante <= 30 && restante > 20 && !this.ultimoAvisoProgresso.faltam30) {
         this.ultimoAvisoProgresso.faltam30 = true;
 
         return {
           falar: true,
           tipo: "progresso",
-          texto: "Faltam trinta segundos."
+          texto: proximoTexto
+            ? `Faltam trinta segundos. Depois entra ${proximoTexto}.`
+            : "Faltam trinta segundos."
         };
       }
 
@@ -193,17 +150,15 @@ class CoachBrain {
           falar: true,
           prioridade: true,
           tipo: "progresso",
-          texto: "Últimos dez segundos."
+          texto: proximoTexto
+            ? `Últimos dez segundos. Em seguida, ${proximoTexto}.`
+            : "Últimos dez segundos."
         };
       }
     }
 
     return null;
   }
-
-  // ==========================================
-  // FALA DE INÍCIO DO BLOCO
-  // ==========================================
 
   falaInicioBloco(bloco) {
     const nome = (bloco.nome || "").toLowerCase();
@@ -237,6 +192,21 @@ class CoachBrain {
     return `${bloco.nome || "Novo bloco"}. ${meta}. ${pace}`;
   }
 
+  textoProximoBloco(bloco) {
+    if (!bloco) return "";
+
+    const nome = (bloco.nome || "o próximo bloco").toLowerCase();
+    const meta = this.textoMeta(bloco).toLowerCase();
+    const pace = this.textoPace(bloco);
+
+    if (nome.includes("recuper")) return `recuperação. ${meta}`;
+    if (nome.includes("tiro")) return `tiro. ${meta}. ${pace}`;
+    if (nome.includes("desaque")) return `desaquecimento. ${meta}`;
+    if (nome.includes("aquec")) return `aquecimento. ${meta}`;
+
+    return `${bloco.nome}. ${meta}`;
+  }
+
   textoMeta(bloco) {
     if (!bloco) return "";
 
@@ -245,26 +215,24 @@ class CoachBrain {
     }
 
     if (bloco.meta_tipo === "tempo") {
-      const minutos = Math.round(bloco.meta_valor / 60);
-      return minutos > 0
-        ? `Serão ${minutos} minutos`
-        : `Serão ${bloco.meta_valor} segundos`;
+      if (bloco.meta_valor >= 60) {
+        const minutos = Math.round(bloco.meta_valor / 60);
+        return `Serão ${minutos} minutos`;
+      }
+
+      return `Serão ${Math.round(bloco.meta_valor)} segundos`;
     }
 
     return "";
   }
 
   textoPace(bloco) {
-    if (!bloco || bloco.ritmo_livre) {
-      return "Ritmo livre";
-    }
+    if (!bloco || bloco.ritmo_livre) return "Ritmo livre";
 
     const rapido = this.formatarPace(bloco.pace_alvo_max_seg_km);
     const lento = this.formatarPace(bloco.pace_alvo_min_seg_km);
 
-    if (rapido === lento) {
-      return `Pace alvo de ${rapido}`;
-    }
+    if (rapido === lento) return `Pace alvo de ${rapido}`;
 
     return `Pace alvo entre ${rapido} e ${lento}`;
   }
@@ -280,13 +248,9 @@ class CoachBrain {
 
 }
 
-// ==========================================
-// INSTÂNCIA GLOBAL
-// ==========================================
-
 const coachBrain = new CoachBrain();
 
 window.CoachBrain = CoachBrain;
 window.coachBrain = coachBrain;
 
-console.log("🧠 CoachBrain carregado.");
+console.log("🧠 CoachBrain V4 carregado.");
