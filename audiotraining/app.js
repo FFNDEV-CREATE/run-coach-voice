@@ -526,15 +526,20 @@ AppState.gpsTracker.iniciar();
 
     this.iniciarExecutor();
 
-    AppState.gpsTracker =
-      new GPSSimulator(update=>{
 
-        AppState.executor.atualizar(update);
+AppState.gpsTracker =
+  new GPSTracker(update=>{
 
-      });
+    AppState.executor.atualizar(update);
 
-    AppState.gpsTracker.iniciar();
+  });
 
+// MODO TESTE TEMPORÁRIO
+AppState.gpsTracker.modoTeste = true;
+
+AppState.gpsTracker.iniciar();
+ 
+    
   },
 
   iniciarExecutor(){
