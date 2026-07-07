@@ -259,32 +259,43 @@ class CoachBrain {
     return this.textoMeta(bloco);
   }
 
-  textoPace(bloco) {
-    if (!bloco || bloco.ritmo_livre || this.ehDescanso(bloco)) {
-      return "";
-    }
-
-    const rapido = this.formatarPace(bloco.pace_alvo_max_seg_km);
-    const lento = this.formatarPace(bloco.pace_alvo_min_seg_km);
-
-    if (!rapido || !lento) return "";
-
-    if (rapido === lento) {
-      return `Pace ${rapido}`;
-    }
-
-    return `Pace entre ${rapido} e ${lento}`;
+textoPace(bloco) {
+  if (!bloco || bloco.ritmo_livre || this.ehDescanso(bloco)) {
+    return "";
   }
 
-  formatarPace(segundos) {
-    if (!segundos) return "";
+  const rapido = this.formatarRitmo(bloco.pace_alvo_max_seg_km);
+  const lento = this.formatarRitmo(bloco.pace_alvo_min_seg_km);
 
-    const min = Math.floor(segundos / 60);
-    const seg = Math.round(segundos % 60);
+  if (!rapido || !lento) return "";
 
-    return `${min}:${String(seg).padStart(2, "0")}`;
+  if (rapido === lento) {
+    return `Ritmo alvo de ${rapido} por quilômetro`;
   }
 
+  return `Ritmo alvo entre ${rapido} e ${lento} por quilômetro`;
+}
+
+formatarPace(segundos) {
+  return this.formatarRitmo(segundos);
+}
+
+formatarRitmo(segundos) {
+  if (!segundos) return "";
+
+  const min = Math.floor(segundos / 60);
+  const seg = Math.round(segundos % 60);
+
+  if (seg === 0) {
+    return `${min} minutos`;
+  }
+
+  return `${min} minutos e ${seg} segundos`;
+}
+
+
+
+  
 }
 
 const coachBrain = new CoachBrain();
