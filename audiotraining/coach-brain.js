@@ -144,3 +144,5 @@ const coachBrain = new CoachBrain();
 
 window.CoachBrain = CoachBrain;
 window.coachBrain = coachBrain;
+
+console.log("CoachBrain carregado", window.coachBrain);
