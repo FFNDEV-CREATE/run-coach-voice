@@ -27,9 +27,6 @@ function verificarDependencias() {
   if (!Dependencies.RunExecutor)
     faltando.push("RunExecutor");
 
-  if (!Dependencies.GPSSimulator)
-    faltando.push("GPSSimulator");
-
   if (!Dependencies.VoiceEngine)
     faltando.push("VoiceEngine");
 
@@ -506,17 +503,21 @@ const ExecutionController = {
 
     this.iniciarExecutor();
 
-AppState.gpsTracker =
-  new GPSTracker(update=>{
+    AppState.gpsTracker =
+      new GPSTracker(update=>{
 
-    AppState.executor.atualizar(update);
+        AppState.executor.atualizar(update);
 
-  });
+      });
 
-// MODO TESTE TEMPORÁRIO
-AppState.gpsTracker.modoTeste = true;
-
-AppState.gpsTracker.iniciar();
+    // modoTeste permanece false aqui: este é o modo GPS real.
+    try {
+      AppState.gpsTracker.iniciar();
+    } catch (e) {
+      UI.execucao.status.textContent =
+        "Não foi possível acessar o GPS: " + e.message;
+      console.error(e);
+    }
 
   },
 
@@ -526,20 +527,18 @@ AppState.gpsTracker.iniciar();
 
     this.iniciarExecutor();
 
+    AppState.gpsTracker =
+      new GPSTracker(update=>{
 
-AppState.gpsTracker =
-  new GPSTracker(update=>{
+        AppState.executor.atualizar(update);
 
-    AppState.executor.atualizar(update);
+      });
 
-  });
+    // Modo teste: gera movimento simulado, sem depender do GPS real.
+    AppState.gpsTracker.modoTeste = true;
 
-// MODO TESTE TEMPORÁRIO
-AppState.gpsTracker.modoTeste = true;
+    AppState.gpsTracker.iniciar();
 
-AppState.gpsTracker.iniciar();
- 
-    
   },
 
   iniciarExecutor(){
@@ -632,7 +631,7 @@ AppState.gpsTracker.iniciar();
 
           AppState.execucaoId,
 
-          AppState.gpsTracker.distanciaTotalM,
+          AppState.gpsTracker?.distanciaTotalM || 0,
 
           (Date.now()-
           AppState.executor.tempoInicioTotal)/1000
@@ -731,7 +730,7 @@ AppState.gpsTracker.iniciar();
 
       else if(
 
-        state.paceSegPorKm <
+        state.paceSegPorKm 
         state.bloco.pace_alvo_max_seg_km-5
 
       ){
