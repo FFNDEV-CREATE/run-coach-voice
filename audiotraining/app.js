@@ -2,7 +2,7 @@
 
 // =======================================================
 // RUN COACH VOICE
-// APP.JS V2
+// APP.JS V3 (com Wake Lock)
 // =======================================================
 
 // ===============================
@@ -12,9 +12,9 @@
 const Dependencies = {
   SupabaseClient: window.SupabaseClient,
   RunExecutor: window.RunExecutor,
-  GPSSimulator: window.GPSSimulator,
   VoiceEngine: window.VoiceEngine,
-  coachBrain: window.coachBrain
+  coachBrain: window.coachBrain,
+  WakeLockManager: window.WakeLockManager
 };
 
 function verificarDependencias() {
@@ -32,6 +32,9 @@ function verificarDependencias() {
 
   if (!Dependencies.coachBrain)
     faltando.push("CoachBrain");
+
+  if (!Dependencies.WakeLockManager)
+    faltando.push("WakeLockManager");
 
   if (faltando.length) {
     console.error(
@@ -480,11 +483,20 @@ const ExecutionController = {
     UI.execucao.parar.onclick =
       ()=>this.parar();
 
+    // Reativa o Wake Lock automaticamente se o navegador liberá-lo
+    // ao trocar de app (ex: usuário abre o Spotify) e o treino
+    // ainda estiver em andamento.
+    Dependencies.WakeLockManager.configurarReativacao(
+      () => AppState.executando
+    );
+
   },
 
   async iniciarGPS(){
 
     AppState.modo="gps";
+
+    await Dependencies.WakeLockManager.ativar();
 
     try{
 
@@ -517,13 +529,17 @@ const ExecutionController = {
       UI.execucao.status.textContent =
         "Não foi possível acessar o GPS: " + e.message;
       console.error(e);
+      AppState.executando = false;
+      Dependencies.WakeLockManager.liberar();
     }
 
   },
 
-  iniciarSimulacao(){
+  async iniciarSimulacao(){
 
     AppState.modo="simulador";
+
+    await Dependencies.WakeLockManager.ativar();
 
     this.iniciarExecutor();
 
@@ -542,6 +558,8 @@ const ExecutionController = {
   },
 
   iniciarExecutor(){
+
+    AppState.executando = true;
 
     const blocos =
       obterBlocos(AppState.treinoAtual);
@@ -616,10 +634,14 @@ const ExecutionController = {
 
   async finalizar(){
 
+    AppState.executando = false;
+
     UI.execucao.status.textContent =
       "Treino concluído 🎉";
 
     AppState.gpsTracker?.parar();
+
+    await Dependencies.WakeLockManager.liberar();
 
     if(AppState.execucaoId){
 
@@ -651,7 +673,11 @@ const ExecutionController = {
     if(!confirm("Parar treino?"))
       return;
 
+    AppState.executando = false;
+
     AppState.gpsTracker?.parar();
+
+    await Dependencies.WakeLockManager.liberar();
 
     if(AppState.execucaoId){
 
@@ -728,9 +754,9 @@ const ExecutionController = {
 
       }
 
-    else if(
+      else if(
 
-        state.paceSegPorKm <
+        state.paceSegPorKm 
         state.bloco.pace_alvo_max_seg_km-5
 
       ){
@@ -738,7 +764,6 @@ const ExecutionController = {
         ring.classList.add("rapido");
 
       }
-
 
       else{
 
