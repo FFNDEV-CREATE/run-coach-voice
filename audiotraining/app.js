@@ -728,9 +728,9 @@ const ExecutionController = {
 
       }
 
-      else if(
+    else if(
 
-        state.paceSegPorKm 
+        state.paceSegPorKm <
         state.bloco.pace_alvo_max_seg_km-5
 
       ){
@@ -738,6 +738,7 @@ const ExecutionController = {
         ring.classList.add("rapido");
 
       }
+
 
       else{
 
