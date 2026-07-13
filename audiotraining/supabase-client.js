@@ -7,15 +7,11 @@ const headers = {
   "apikey": SUPABASE_ANON_KEY
 };
 
-// ================================
-// CLIENT CENTRALIZADO
-// ================================
 const SupabaseClient = {
 
   async _request(url, options = {}) {
     try {
       const resp = await fetch(url, options);
-
       const data = await resp.json().catch(() => null);
 
       if (!resp.ok) {
@@ -29,9 +25,6 @@ const SupabaseClient = {
     }
   },
 
-  // ================================
-  // TREINO PARSE
-  // ================================
   parseTreino(textoTreino) {
     return this._request(
       `${SUPABASE_URL}/functions/v1/parse-treino`,
@@ -43,9 +36,6 @@ const SupabaseClient = {
     );
   },
 
-  // ================================
-  // TREINOS
-  // ================================
   listarTreinos() {
     return this._request(
       `${SUPABASE_URL}/rest/v1/treinos?select=*&order=criado_em.desc`,
@@ -58,10 +48,7 @@ const SupabaseClient = {
       `${SUPABASE_URL}/rest/v1/treinos`,
       {
         method: "POST",
-        headers: {
-          ...headers,
-          "Prefer": "return=representation"
-        },
+        headers: { ...headers, "Prefer": "return=representation" },
         body: JSON.stringify({
           titulo,
           texto_original: textoOriginal,
@@ -71,22 +58,35 @@ const SupabaseClient = {
     );
   },
 
-  // ================================
-  // EXECUÇÃO
-  // ================================
+  atualizarTreino(id, titulo, textoOriginal, blocos) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/treinos?id=eq.${id}`,
+      {
+        method: "PATCH",
+        headers: { ...headers, "Prefer": "return=representation" },
+        body: JSON.stringify({
+          titulo,
+          texto_original: textoOriginal,
+          blocos: blocos || { blocos: [] }
+        })
+      }
+    );
+  },
+
+  excluirTreino(id) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/treinos?id=eq.${id}`,
+      { method: "DELETE", headers }
+    );
+  },
+
   criarExecucao(treinoId) {
     return this._request(
       `${SUPABASE_URL}/rest/v1/execucoes`,
       {
         method: "POST",
-        headers: {
-          ...headers,
-          "Prefer": "return=representation"
-        },
-        body: JSON.stringify({
-          treino_id: treinoId,
-          status: "ativo"
-        })
+        headers: { ...headers, "Prefer": "return=representation" },
+        body: JSON.stringify({ treino_id: treinoId, status: "ativo" })
       }
     );
   },
@@ -107,17 +107,7 @@ const SupabaseClient = {
     );
   },
 
-  // ================================
-  // BLOCOS EXECUTADOS
-  // ================================
-  salvarBlocoExecutado(
-    execucaoId,
-    blocoIndex,
-    bloco,
-    paceRealMedio,
-    distanciaRealM,
-    tempoRealS
-  ) {
+  salvarBlocoExecutado(execucaoId, blocoIndex, bloco, paceRealMedio, distanciaRealM, tempoRealS) {
     return this._request(
       `${SUPABASE_URL}/rest/v1/execucao_blocos`,
       {
@@ -129,10 +119,8 @@ const SupabaseClient = {
           bloco_nome: bloco?.nome || "",
           meta_tipo: bloco?.meta_tipo || "",
           meta_valor: bloco?.meta_valor || 0,
-
           pace_alvo_min: bloco?.pace_alvo_min_seg_km ?? null,
           pace_alvo_max: bloco?.pace_alvo_max_seg_km ?? null,
-
           pace_real_medio: paceRealMedio ?? null,
           distancia_real_m: distanciaRealM ?? 0,
           tempo_real_s: tempoRealS ?? 0
@@ -141,9 +129,5 @@ const SupabaseClient = {
     );
   }
 };
-
-// ================================
-// 🌍 EXPOSIÇÃO GLOBAL
-// ================================
 
 window.SupabaseClient = SupabaseClient;
