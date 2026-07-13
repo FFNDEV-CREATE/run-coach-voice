@@ -492,9 +492,15 @@ const ExecutionController = {
 
   },
 
-  async iniciarGPS(){
+ 
+async iniciarGPS(){
+
+    VoiceEngine.desbloquear();
 
     AppState.modo="gps";
+
+
+  
 
     await Dependencies.WakeLockManager.ativar();
 
@@ -535,9 +541,14 @@ const ExecutionController = {
 
   },
 
-  async iniciarSimulacao(){
+async iniciarSimulacao(){
+
+    VoiceEngine.desbloquear();
 
     AppState.modo="simulador";
+
+
+  
 
     await Dependencies.WakeLockManager.ativar();
 
