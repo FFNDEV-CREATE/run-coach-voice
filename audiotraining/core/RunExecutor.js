@@ -1,7 +1,7 @@
 // ==========================================
-// 🏃 RUN EXECUTOR V4
+// 🏃 RUN EXECUTOR V5
 // Motor central de execução do treino
-// Com suavização de pace (reduz ruído do GPS)
+// Com suavização de pace + pausar/retomar
 // ==========================================
 
 class RunExecutor {
@@ -20,9 +20,11 @@ class RunExecutor {
     this.ultimoUpdate = null;
     this.paceAtualSegPorKm = null;
 
-    // Janela de suavização do pace (últimos ~8 segundos)
     this.historicoPace = [];
     this.JANELA_SUAVIZACAO_MS = 8000;
+
+    this.pausado = false;
+    this.pausaIniciadaEm = null;
 
     this.onBlocoCompleto = null;
     this.onFinalizado = null;
@@ -35,14 +37,40 @@ class RunExecutor {
 
     this.tempoInicioTotal = Date.now();
     this.finalizado = false;
+    this.pausado = false;
+    this.pausaIniciadaEm = null;
     this.blocoIndex = 0;
     this.distanciaTotalM = 0;
 
     this._iniciarBlocoAtual();
   }
 
+  pausar() {
+    if (this.finalizado || this.pausado) return;
+
+    this.pausado = true;
+    this.pausaIniciadaEm = Date.now();
+
+    this._emitirEstado(false);
+  }
+
+  retomar() {
+    if (this.finalizado || !this.pausado) return;
+
+    const duracaoPausaMs = Date.now() - this.pausaIniciadaEm;
+
+    this.tempoInicioTotal += duracaoPausaMs;
+    this.tempoInicioBloco += duracaoPausaMs;
+
+    this.pausado = false;
+    this.pausaIniciadaEm = null;
+
+    this._emitirEstado(false);
+  }
+
   atualizar(gpsUpdate) {
     if (this.finalizado) return;
+    if (this.pausado) return;
 
     this.ultimoUpdate = gpsUpdate;
 
@@ -233,6 +261,8 @@ class RunExecutor {
 
       forcarNovoBloco,
 
+      pausado: this.pausado,
+
       finalizado: this.finalizado
     };
 
@@ -240,10 +270,6 @@ class RunExecutor {
   }
 }
 
-// ==========================================
-// 🌍 EXPOSIÇÃO GLOBAL
-// ==========================================
-
 window.RunExecutor = RunExecutor;
 
-console.log("🏃 RunExecutor V4 carregado.");
+console.log("🏃 RunExecutor V5 carregado.");
