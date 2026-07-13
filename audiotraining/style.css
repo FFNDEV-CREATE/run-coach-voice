@@ -147,3 +147,25 @@ textarea#texto-treino:focus{outline:none;border-color:var(--accent);}
   .exec-pace-ring{width:180px;height:180px;}
   .exec-pace-value span{font-size:32px;}
 }
+/* Cards de treino: ações de editar/excluir */
+.treino-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.treino-card-main{flex:1;cursor:pointer;}
+.treino-card-actions{display:flex;gap:6px;flex-shrink:0;}
+.icon-btn{
+  background:var(--surface-2);
+  border:1px solid rgba(234,242,236,0.12);
+  border-radius:10px;
+  width:36px;height:36px;
+  font-size:15px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.icon-btn:active{background:rgba(234,242,236,0.12);}
+
+/* Ring de pace: estado pausado */
+.exec-pace-ring.pausado{border-color:var(--muted);opacity:0.6;}
