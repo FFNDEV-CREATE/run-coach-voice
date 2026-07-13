@@ -2,8 +2,37 @@
 
 // =======================================================
 // RUN COACH VOICE
-// APP.JS V4 (edição, exclusão, pausar/retomar)
+// APP.JS V5 (separação de treinos por aparelho)
 // =======================================================
+
+const DeviceIdentity = {
+
+  STORAGE_KEY: "run_coach_device_id",
+
+  obter() {
+    let id = localStorage.getItem(this.STORAGE_KEY);
+
+    if (!id) {
+      id = this._gerarId();
+      localStorage.setItem(this.STORAGE_KEY, id);
+    }
+
+    return id;
+  },
+
+  _gerarId() {
+    if (window.crypto && window.crypto.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+};
 
 const Dependencies = {
   SupabaseClient: window.SupabaseClient,
@@ -70,6 +99,8 @@ const UI = {
 };
 
 const AppState = {
+
+  deviceId: null,
 
   treinoAtual: null,
   treinoEditandoId: null,
@@ -143,10 +174,6 @@ function obterBlocos(treino){
   return treino?.blocos?.blocos || [];
 }
 
-// ===============================
-// LISTA DE TREINOS
-// ===============================
-
 const TrainingList = {
 
   async carregar(){
@@ -155,7 +182,7 @@ const TrainingList = {
 
     try{
 
-      const treinos = await Dependencies.SupabaseClient.listarTreinos();
+      const treinos = await Dependencies.SupabaseClient.listarTreinos(AppState.deviceId);
 
       if(!treinos.length){
         UI.listaTreinos.innerHTML = `<p class="empty-state">Nenhum treino encontrado.</p>`;
@@ -230,10 +257,6 @@ const TrainingList = {
   }
 
 };
-
-// ===============================
-// NOVO TREINO / EDITAR TREINO
-// ===============================
 
 const NewTraining = {
 
@@ -327,7 +350,8 @@ const NewTraining = {
       await Dependencies.SupabaseClient.salvarTreino(
         AppState.tituloInterpretado,
         UI.novoTreino.texto.value,
-        blocosPayload
+        blocosPayload,
+        AppState.deviceId
       );
 
     }
@@ -345,10 +369,6 @@ const NewTraining = {
   }
 
 };
-
-// ===============================
-// EXECUTION CONTROLLER
-// ===============================
 
 const ExecutionController = {
 
@@ -599,7 +619,7 @@ const ExecutionController = {
 
       else if(
 
-        state.paceSegPorKm <
+        state.paceSegPorKm 
         state.bloco.pace_alvo_max_seg_km-5
 
       ){
@@ -638,11 +658,10 @@ const ExecutionController = {
 
 };
 
-// ===============================
-// INICIALIZAÇÃO
-// ===============================
-
 function inicializarAplicacao(){
+
+  AppState.deviceId = DeviceIdentity.obter();
+  console.log("📱 Device ID:", AppState.deviceId);
 
   verificarDependencias();
 
