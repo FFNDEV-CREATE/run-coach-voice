@@ -36,14 +36,14 @@ const SupabaseClient = {
     );
   },
 
-  listarTreinos() {
+  listarTreinos(deviceId) {
     return this._request(
-      `${SUPABASE_URL}/rest/v1/treinos?select=*&order=criado_em.desc`,
+      `${SUPABASE_URL}/rest/v1/treinos?select=*&device_id=eq.${deviceId}&order=criado_em.desc`,
       { headers }
     );
   },
 
-  salvarTreino(titulo, textoOriginal, blocos) {
+  salvarTreino(titulo, textoOriginal, blocos, deviceId) {
     return this._request(
       `${SUPABASE_URL}/rest/v1/treinos`,
       {
@@ -52,7 +52,8 @@ const SupabaseClient = {
         body: JSON.stringify({
           titulo,
           texto_original: textoOriginal,
-          blocos: blocos || { blocos: [] }
+          blocos: blocos || { blocos: [] },
+          device_id: deviceId
         })
       }
     );
@@ -77,6 +78,17 @@ const SupabaseClient = {
     return this._request(
       `${SUPABASE_URL}/rest/v1/treinos?id=eq.${id}`,
       { method: "DELETE", headers }
+    );
+  },
+
+  reivindicarTreinosOrfaos(deviceId) {
+    return this._request(
+      `${SUPABASE_URL}/rest/v1/treinos?device_id=is.null`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ device_id: deviceId })
+      }
     );
   },
 
