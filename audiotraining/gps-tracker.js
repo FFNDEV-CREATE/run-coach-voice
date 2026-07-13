@@ -1,6 +1,6 @@
 // ==========================================
-// 🛰️ GPS TRACKER V4
-// GPS real + modo teste com movimento automático
+// 🛰️ GPS TRACKER V5
+// GPS real + modo teste + pausar/retomar
 // ==========================================
 
 class GPSTracker {
@@ -13,13 +13,14 @@ class GPSTracker {
 
     this.ativo = false;
     this.modoTeste = false;
+    this.pausado = false;
 
     this.distanciaTotalM = 0;
 
     this.ultimaPosicao = null;
     this.ultimoTimestamp = null;
 
-    this.velocidadeTesteMS = 2.8; // ~5:57/km
+    this.velocidadeTesteMS = 2.8;
   }
 
   iniciar() {
@@ -30,6 +31,7 @@ class GPSTracker {
     }
 
     this.ativo = true;
+    this.pausado = false;
 
     this.watchId = navigator.geolocation.watchPosition(
       (posicao) => this._processarPosicao(posicao),
@@ -44,6 +46,34 @@ class GPSTracker {
     console.log("🛰️ GPSTracker iniciado.");
   }
 
+  pausar() {
+    if (!this.ativo || this.pausado) return;
+
+    this.pausado = true;
+
+    if (this.intervaloTeste !== null) {
+      clearInterval(this.intervaloTeste);
+      this.intervaloTeste = null;
+    }
+
+    console.log("⏸️ GPSTracker pausado.");
+  }
+
+  retomar() {
+    if (!this.ativo || !this.pausado) return;
+
+    this.pausado = false;
+
+    this.ultimaPosicao = null;
+    this.ultimoTimestamp = null;
+
+    if (this.modoTeste) {
+      this._iniciarMovimentoTeste();
+    }
+
+    console.log("▶️ GPSTracker retomado.");
+  }
+
   parar() {
     if (this.watchId !== null) {
       navigator.geolocation.clearWatch(this.watchId);
@@ -56,11 +86,14 @@ class GPSTracker {
     this.watchId = null;
     this.intervaloTeste = null;
     this.ativo = false;
+    this.pausado = false;
 
     console.log("🛑 GPSTracker parado.");
   }
 
   _processarPosicao(posicao) {
+    if (this.pausado) return;
+
     const coords = posicao.coords;
 
     if (!coords) return;
@@ -128,7 +161,7 @@ class GPSTracker {
     if (this.intervaloTeste !== null) return;
 
     this.intervaloTeste = setInterval(() => {
-      if (!this.ativo || !this.modoTeste) return;
+      if (!this.ativo || !this.modoTeste || this.pausado) return;
 
       const simulado = this._gerarMovimentoTeste(1);
 
@@ -199,4 +232,4 @@ class GPSTracker {
 
 window.GPSTracker = GPSTracker;
 
-console.log("🛰️ GPSTracker carregado.");
+console.log("🛰️ GPSTracker V5 carregado.");
