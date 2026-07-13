@@ -81,8 +81,8 @@ const VoiceEngine = {
     fala.lang = "pt-BR";
 
     // mais dinâmica, menos robótica
-    fala.rate = 1.18;
-    fala.pitch = 1.08;
+    fala.rate = 1.05;
+    fala.pitch = 1.0;
     fala.volume = 1;
 
     const voz = this._obterVoz();
