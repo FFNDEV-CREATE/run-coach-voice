@@ -740,39 +740,26 @@ const ExecutionController = {
       "lento"
     );
 
-    if(
+if(
       !state.bloco.ritmo_livre &&
       state.paceSegPorKm
     ){
-
       if(
         state.paceSegPorKm >
         state.bloco.pace_alvo_min_seg_km+5
       ){
-
         ring.classList.add("lento");
-
       }
-
       else if(
-
-        state.paceSegPorKm 
+        state.paceSegPorKm <
         state.bloco.pace_alvo_max_seg_km-5
-
       ){
-
         ring.classList.add("rapido");
-
       }
-
       else{
-
         ring.classList.add("ok");
-
       }
-
     }
-
   },
 
     renderTimeline(blocos, indiceAtual){
