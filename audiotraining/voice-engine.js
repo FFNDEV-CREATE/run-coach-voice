@@ -1,6 +1,6 @@
 // ================================
-// 🔊 RUN COACH VOICE ENGINE V2
-// Voz mais rápida, curta e natural
+// 🔊 RUN COACH VOICE ENGINE V3
+// Corrige silêncio no Safari/iOS
 // ================================
 
 const VoiceEngine = {
@@ -12,6 +12,26 @@ const VoiceEngine = {
   ultimoTempo: 0,
 
   vozSelecionada: null,
+
+  // Guarda referência forte do utterance atual.
+  // No Safari/iOS, se nada segurar essa referência, o navegador
+  // pode descartar a fala silenciosamente antes de reproduzi-la.
+  utteranceAtual: null,
+
+  // Chame isso DENTRO de um clique real do usuário (ex: botão "Iniciar"),
+  // antes de qualquer código assíncrono. Isso "destrava" o áudio no iOS.
+  desbloquear() {
+    if (!("speechSynthesis" in window)) return;
+
+    try {
+      const silencio = new SpeechSynthesisUtterance(" ");
+      silencio.volume = 0;
+      window.speechSynthesis.speak(silencio);
+      console.log("🔊 Áudio destravado (iOS).");
+    } catch (e) {
+      console.warn("Falha ao destravar áudio:", e.message);
+    }
+  },
 
   falar(texto, { prioridade = false, tipo = "normal" } = {}) {
     if (!texto) return;
@@ -68,13 +88,19 @@ const VoiceEngine = {
     const voz = this._obterVoz();
     if (voz) fala.voice = voz;
 
+    // mantém referência forte (evita bug de silêncio no Safari/iOS)
+    this.utteranceAtual = fala;
+
     fala.onend = () => {
       this.falando = false;
+      this.utteranceAtual = null;
       this._processarFila();
     };
 
-    fala.onerror = () => {
+    fala.onerror = (e) => {
+      console.warn("Erro na síntese de voz:", e.error);
       this.falando = false;
+      this.utteranceAtual = null;
       this._processarFila();
     };
 
@@ -105,6 +131,7 @@ const VoiceEngine = {
     this.fila = [];
     window.speechSynthesis.cancel();
     this.falando = false;
+    this.utteranceAtual = null;
   }
 
 };
@@ -116,4 +143,4 @@ window.speechSynthesis.onvoiceschanged = () => {
 
 window.VoiceEngine = VoiceEngine;
 
-console.log("🔊 VoiceEngine V2 carregado.");
+console.log("🔊 VoiceEngine V3 carregado.");
