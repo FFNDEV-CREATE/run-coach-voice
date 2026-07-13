@@ -1,6 +1,7 @@
 // ==========================================
-// 🏃 RUN EXECUTOR V3
+// 🏃 RUN EXECUTOR V4
 // Motor central de execução do treino
+// Com suavização de pace (reduz ruído do GPS)
 // ==========================================
 
 class RunExecutor {
@@ -18,6 +19,10 @@ class RunExecutor {
 
     this.ultimoUpdate = null;
     this.paceAtualSegPorKm = null;
+
+    // Janela de suavização do pace (últimos ~8 segundos)
+    this.historicoPace = [];
+    this.JANELA_SUAVIZACAO_MS = 8000;
 
     this.onBlocoCompleto = null;
     this.onFinalizado = null;
@@ -43,13 +48,27 @@ class RunExecutor {
 
     const { distanciaDeltaM, paceSegPorKm } = gpsUpdate || {};
 
-    this.paceAtualSegPorKm = paceSegPorKm || this.paceAtualSegPorKm;
+    this._registrarPace(paceSegPorKm);
 
     this.distanciaTotalM += distanciaDeltaM || 0;
     this.distanciaNoBloco += distanciaDeltaM || 0;
 
     this._emitirEstado(false);
     this._verificarMetaBloco();
+  }
+
+  _registrarPace(paceSegPorKm) {
+    if (!paceSegPorKm || !isFinite(paceSegPorKm)) return;
+
+    const agora = Date.now();
+
+    this.historicoPace.push({ t: agora, pace: paceSegPorKm });
+
+    const limite = agora - this.JANELA_SUAVIZACAO_MS;
+    this.historicoPace = this.historicoPace.filter(p => p.t >= limite);
+
+    const soma = this.historicoPace.reduce((acc, p) => acc + p.pace, 0);
+    this.paceAtualSegPorKm = soma / this.historicoPace.length;
   }
 
   _iniciarBlocoAtual() {
@@ -63,6 +82,7 @@ class RunExecutor {
     this.tempoInicioBloco = Date.now();
     this.distanciaNoBloco = 0;
     this.paceAtualSegPorKm = null;
+    this.historicoPace = [];
 
     this._emitirEstado(true);
   }
@@ -226,4 +246,4 @@ class RunExecutor {
 
 window.RunExecutor = RunExecutor;
 
-console.log("🏃 RunExecutor V3 carregado.");
+console.log("🏃 RunExecutor V4 carregado.");
