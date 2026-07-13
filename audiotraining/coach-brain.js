@@ -1,6 +1,6 @@
 // ==========================================
-// 🧠 COACH BRAIN V6
-// Voz natural, contínua, com contagem regressiva
+// 🧠 COACH BRAIN V7
+// Silencioso em blocos curtos, com debounce de pace
 // ==========================================
 
 class CoachBrain {
@@ -9,6 +9,7 @@ class CoachBrain {
     this.ultimoBloco = -1;
     this.ultimoAvisoPace = 0;
     this.ultimoEstadoPace = "ok";
+    this.contadorEstadoConsecutivo = 0;
     this.avisouMetade = false;
     this.menorContagemFalada = null;
   }
@@ -22,6 +23,7 @@ class CoachBrain {
       this.ultimoBloco = state.blocoIndex;
       this.ultimoEstadoPace = "ok";
       this.ultimoAvisoPace = 0;
+      this.contadorEstadoConsecutivo = 0;
       this.avisouMetade = false;
       this.menorContagemFalada = null;
 
@@ -33,8 +35,10 @@ class CoachBrain {
       };
     }
 
-    // Contagem regressiva tem prioridade sobre qualquer outro aviso,
-    // pra garantir a transição contínua entre blocos.
+    if (this.blocoMuitoCurto(bloco)) {
+      return null;
+    }
+
     const contagem = this.analisarContagemRegressiva(state);
     if (contagem) return contagem;
 
@@ -47,20 +51,34 @@ class CoachBrain {
     if (!bloco.pace_alvo_min_seg_km || !bloco.pace_alvo_max_seg_km) return null;
 
     const pace = state.paceSegPorKm;
-
-    // Tolerância ampliada: só avisa se estiver bem fora da faixa.
-    // Ex: alvo 5:40 a 6:00 -> avisa só abaixo de 5:30 ou acima de 6:10
     const tolerancia = 10;
 
     const rapido = pace < bloco.pace_alvo_max_seg_km - tolerancia;
     const lento = pace > bloco.pace_alvo_min_seg_km + tolerancia;
 
-    let estado = "ok";
-    if (lento) estado = "lento";
-    if (rapido) estado = "rapido";
+    let estadoBruto = "ok";
+    if (lento) estadoBruto = "lento";
+    if (rapido) estadoBruto = "rapido";
+
+    if (estadoBruto === this.ultimoEstadoPaceCandidato) {
+      this.contadorEstadoConsecutivo++;
+    } else {
+      this.ultimoEstadoPaceCandidato = estadoBruto;
+      this.contadorEstadoConsecutivo = 1;
+    }
+
+    if (this.contadorEstadoConsecutivo < 2) {
+      return null;
+    }
+
+    const estado = estadoBruto;
+    const agora = Date.now();
 
     if (estado === "ok" && this.ultimoEstadoPace !== "ok") {
+      if (agora - this.ultimoAvisoPace < 8000) return null;
+
       this.ultimoEstadoPace = "ok";
+      this.ultimoAvisoPace = agora;
 
       return {
         falar: true,
@@ -70,7 +88,6 @@ class CoachBrain {
     }
 
     if (estado !== "ok") {
-      const agora = Date.now();
       if (agora - this.ultimoAvisoPace < 18000) return null;
 
       this.ultimoAvisoPace = agora;
@@ -86,9 +103,14 @@ class CoachBrain {
     return null;
   }
 
-  // ==========================================
-  // CONTAGEM REGRESSIVA
-  // ==========================================
+  blocoMuitoCurto(bloco) {
+    if (!bloco || !bloco.meta_tipo || !bloco.meta_valor) return false;
+
+    if (bloco.meta_tipo === "tempo" && bloco.meta_valor <= 20) return true;
+    if (bloco.meta_tipo === "distancia" && bloco.meta_valor <= 100) return true;
+
+    return false;
+  }
 
   analisarContagemRegressiva(state) {
     const bloco = state.bloco;
@@ -119,8 +141,6 @@ class CoachBrain {
 
     if (segundosArredondado < 1 || segundosArredondado > 10) return null;
 
-    // Garante contagem sempre decrescente (evita "9, 8, 11, 7..."
-    // se a estimativa oscilar por causa do pace variando).
     if (this.menorContagemFalada != null && segundosArredondado >= this.menorContagemFalada) {
       return null;
     }
@@ -135,16 +155,11 @@ class CoachBrain {
     };
   }
 
-  // ==========================================
-  // METADE DO BLOCO (só blocos mais longos)
-  // ==========================================
-
   analisarMetade(state) {
     const bloco = state.bloco;
     if (!bloco || !bloco.meta_tipo || !bloco.meta_valor) return null;
     if (this.avisouMetade) return null;
 
-    // Blocos curtos não precisam desse aviso.
     if (bloco.meta_tipo === "tempo" && bloco.meta_valor < 120) return null;
     if (bloco.meta_tipo === "distancia" && bloco.meta_valor < 400) return null;
 
@@ -173,10 +188,6 @@ class CoachBrain {
     return null;
   }
 
-  // ==========================================
-  // FRASES DE PACE (variações naturais)
-  // ==========================================
-
   fraseAcelerar() {
     const opcoes = [
       "Acelera um pouco.",
@@ -203,10 +214,6 @@ class CoachBrain {
     ];
     return opcoes[Math.floor(Math.random() * opcoes.length)];
   }
-
-  // ==========================================
-  // FALA DE INÍCIO DE BLOCO
-  // ==========================================
 
   falaInicioBloco(bloco) {
     const nome = (bloco.nome || "").toLowerCase();
@@ -277,8 +284,6 @@ class CoachBrain {
     return "";
   }
 
-  // Versão curta e natural do pace, tipo "5 e 40" em vez de
-  // "5 minutos e 40 segundos por quilômetro".
   textoPace(bloco) {
     if (!bloco || bloco.ritmo_livre || this.ehDescanso(bloco)) {
       return "";
@@ -316,4 +321,4 @@ const coachBrain = new CoachBrain();
 window.CoachBrain = CoachBrain;
 window.coachBrain = coachBrain;
 
-console.log("🧠 CoachBrain V6 carregado.");
+console.log("🧠 CoachBrain V7 carregado.");
