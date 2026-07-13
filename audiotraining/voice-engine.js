@@ -1,6 +1,6 @@
 // ================================
-// 🔊 RUN COACH VOICE ENGINE V3
-// Corrige silêncio no Safari/iOS
+// 🔊 RUN COACH VOICE ENGINE V4
+// Pausa entre falas + voz mais calma
 // ================================
 
 const VoiceEngine = {
@@ -13,13 +13,10 @@ const VoiceEngine = {
 
   vozSelecionada: null,
 
-  // Guarda referência forte do utterance atual.
-  // No Safari/iOS, se nada segurar essa referência, o navegador
-  // pode descartar a fala silenciosamente antes de reproduzi-la.
   utteranceAtual: null,
 
-  // Chame isso DENTRO de um clique real do usuário (ex: botão "Iniciar"),
-  // antes de qualquer código assíncrono. Isso "destrava" o áudio no iOS.
+  PAUSA_ENTRE_FALAS_MS: 350,
+
   desbloquear() {
     if (!("speechSynthesis" in window)) return;
 
@@ -39,7 +36,6 @@ const VoiceEngine = {
 
     const agora = Date.now();
 
-    // evita repetição, mas permite blocos e alertas importantes
     if (
       !prioridade &&
       tipo === this.ultimoTipo &&
@@ -48,14 +44,12 @@ const VoiceEngine = {
       return;
     }
 
-    // fala de treino não pode acumular fila longa
     if (prioridade) {
       window.speechSynthesis.cancel();
       this.fila = [];
       this.falando = false;
     }
 
-    // se já tem muita fala acumulada, descarta a mais antiga
     if (this.fila.length > 2) {
       this.fila.shift();
     }
@@ -80,27 +74,27 @@ const VoiceEngine = {
 
     fala.lang = "pt-BR";
 
-    // mais dinâmica, menos robótica
-    fala.rate = 1.05;
+    fala.rate = 1.0;
     fala.pitch = 1.0;
     fala.volume = 1;
 
     const voz = this._obterVoz();
     if (voz) fala.voice = voz;
 
-    // mantém referência forte (evita bug de silêncio no Safari/iOS)
     this.utteranceAtual = fala;
 
     fala.onend = () => {
-      this.falando = false;
       this.utteranceAtual = null;
-      this._processarFila();
+      setTimeout(() => {
+        this.falando = false;
+        this._processarFila();
+      }, this.PAUSA_ENTRE_FALAS_MS);
     };
 
     fala.onerror = (e) => {
       console.warn("Erro na síntese de voz:", e.error);
-      this.falando = false;
       this.utteranceAtual = null;
+      this.falando = false;
       this._processarFila();
     };
 
@@ -114,7 +108,6 @@ const VoiceEngine = {
 
     if (!vozes || !vozes.length) return null;
 
-    // tenta priorizar voz brasileira feminina/natural quando existir
     this.vozSelecionada =
       vozes.find(v =>
         v.lang === "pt-BR" &&
@@ -143,4 +136,4 @@ window.speechSynthesis.onvoiceschanged = () => {
 
 window.VoiceEngine = VoiceEngine;
 
-console.log("🔊 VoiceEngine V3 carregado.");
+console.log("🔊 VoiceEngine V4 carregado.");
