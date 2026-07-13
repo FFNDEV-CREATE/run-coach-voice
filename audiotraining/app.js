@@ -599,7 +599,7 @@ const ExecutionController = {
 
       else if(
 
-        state.paceSegPorKm 
+        state.paceSegPorKm <
         state.bloco.pace_alvo_max_seg_km-5
 
       ){
